@@ -1,4 +1,4 @@
-# fw12-oskbd -- the on-screen keyboard.
+# gimbal-sp4-oskbd -- the on-screen keyboard.
 #
 # Originally written for github.com/mechanicsunlocked/fw12tab and vendored here
 # (same author, same MIT licence) because it is the right keyboard for this job
@@ -18,7 +18,6 @@
 
 PREFIX     ?= $(HOME)/.local
 BINDIR     ?= $(PREFIX)/bin
-DATADIR    ?= $(PREFIX)/share/gimbal
 
 PKGS        = gtk4 gtk4-layer-shell-0 gio-unix-2.0 xkbcommon wayland-client
 CFLAGS     ?= -O2 -Wall -Wextra
@@ -29,8 +28,6 @@ CFLAGS     ?= -O2 -Wall -Wextra
 # Turning off the one warning that cannot ever be true here is what makes the
 # rest of them worth reading.
 CFLAGS     += -Wno-missing-field-initializers
-# Where `make install` puts the logo, so the binary looks there first whatever PREFIX was.
-CFLAGS     += -DGIMBAL_DATADIR=\"$(DATADIR)\"
 CFLAGS     += $(shell pkg-config --cflags $(PKGS))
 LDLIBS      = $(shell pkg-config --libs $(PKGS)) -lm
 
@@ -38,7 +35,7 @@ PROTO_XML   = virtual-keyboard-unstable-v1.xml
 PROTO_H     = virtual-keyboard-unstable-v1-client-protocol.h
 PROTO_C     = virtual-keyboard-unstable-v1-protocol.c
 
-all: fw12-oskbd
+all: gimbal-sp4-oskbd
 
 # The header has to exist before oskbd.c is compiled, not merely be listed as a
 # prerequisite of the link -- it is #included.
@@ -48,18 +45,16 @@ $(PROTO_H): $(PROTO_XML)
 $(PROTO_C): $(PROTO_XML)
 	wayland-scanner private-code $< $@
 
-fw12-oskbd: oskbd.c $(PROTO_C) $(PROTO_H)
+gimbal-sp4-oskbd: oskbd.c $(PROTO_C) $(PROTO_H)
 	$(CC) $(CFLAGS) -I. -o $@ oskbd.c $(PROTO_C) $(LDLIBS)
 
-install: fw12-oskbd
-	install -Dm755 fw12-oskbd $(DESTDIR)$(BINDIR)/fw12-oskbd
-	install -Dm644 framework-logo.svg $(DESTDIR)$(DATADIR)/framework-logo.svg
+install: gimbal-sp4-oskbd
+	install -Dm755 gimbal-sp4-oskbd $(DESTDIR)$(BINDIR)/gimbal-sp4-oskbd
 
 uninstall:
-	rm -f $(DESTDIR)$(BINDIR)/fw12-oskbd
-	rm -f $(DESTDIR)$(DATADIR)/framework-logo.svg
+	rm -f $(DESTDIR)$(BINDIR)/gimbal-sp4-oskbd
 
 clean:
-	rm -f fw12-oskbd $(PROTO_C) $(PROTO_H)
+	rm -f gimbal-sp4-oskbd $(PROTO_C) $(PROTO_H)
 
 .PHONY: all install uninstall clean

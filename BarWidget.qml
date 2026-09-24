@@ -14,7 +14,7 @@ import qs.Ui
 // the Wi-Fi panel uses -- so it inherits the theme and needs nothing new
 // installed.
 //
-// Settings live in ~/.config/omarchy/gimbal.json rather than in this plugin's
+// Settings live in ~/.config/omarchy/gimbal-sp4.json rather than in this plugin's
 // shell.json entry, because shell.json is Omarchy's file and a plugin that
 // rewrites it will eventually lose a race with the shell. Panel.qml watches
 // our file and layers it over whatever shell.json says, so a value set here
@@ -22,8 +22,8 @@ import qs.Ui
 Panel {
     id: root
 
-    moduleName: "io.github.mechanicsunlocked.gimbal"
-    ipcTarget: "gimbal"
+    moduleName: "io.github.spitfulfr0g.gimbal-sp4"
+    ipcTarget: "gimbal-sp4"
 
     readonly property color foreground: bar ? bar.foreground : Color.foreground
     readonly property string fontFamily: bar ? bar.fontFamily : Style.font.family
@@ -60,10 +60,10 @@ Panel {
     }
 
     readonly property string home: Quickshell.env("HOME") || ""
-    readonly property string configPath: home + "/.config/omarchy/gimbal.json"
+    readonly property string configPath: home + "/.config/omarchy/gimbal-sp4.json"
     readonly property string runtimeDir: Quickshell.env("XDG_RUNTIME_DIR") || "/tmp"
-    readonly property string modePath: runtimeDir + "/gimbal-mode"
-    readonly property string oskStatePath: runtimeDir + "/gimbal-osk"
+    readonly property string modePath: runtimeDir + "/gimbal-sp4-mode"
+    readonly property string oskStatePath: runtimeDir + "/gimbal-sp4-osk"
 
     // The bar host sizes a slot around whatever the widget asks for, so two
     // buttons need a stated width; a single one could get away with filling
@@ -71,25 +71,10 @@ Panel {
     readonly property bool vertical: bar ? bar.vertical : false
     readonly property int barSize: bar ? bar.barSize : Style.bar.sizeHorizontal
 
-    // Both buttons are tablet-mode controls, so they are only in the bar while
-    // the machine is folded. Collapsing to zero rather than merely hiding is
-    // what actually gives the space back -- the bar host sizes each slot from
-    // the widget's implicit size, so a hidden widget with a width still holds
-    // a gap open.
-    //
-    // The test is "not laptop" rather than "is tablet" on purpose: if the mode
-    // file is missing, gimbal.lua is not running and the buttons would do
-    // nothing anyway, but a control that appears when it should not is obvious
-    // and one that silently never appears is not.
-    implicitWidth: !root.folded ? 0 : (root.vertical ? root.barSize : buttons.implicitWidth)
-    implicitHeight: !root.folded ? 0 : (root.vertical ? buttons.implicitHeight : root.barSize)
-
-    // Unfolding while the settings panel is open would otherwise leave it up
-    // with nothing anchoring it.
-    onFoldedChanged: {
-        if (!root.folded && root.opened)
-            root.close();
-    }
+    // Surface users must be able to summon the keyboard and enter tablet mode
+    // even when there is no hardware mode signal or Type Cover attached.
+    implicitWidth: root.vertical ? root.barSize : buttons.implicitWidth
+    implicitHeight: root.vertical ? buttons.implicitHeight : root.barSize
 
     property bool keyboardShown: false
 
@@ -108,9 +93,9 @@ Panel {
             "swipeRight": "hyprctl dispatch 'hl.dsp.focus({ workspace = \"r-1\" })'",
             "swipeLeft": "hyprctl dispatch 'hl.dsp.focus({ workspace = \"r+1\" })'",
             "blockOnMoonlight": true,
-            "autoShow": true,
-            "keyboardOpacity": 0.5,
-            "keyboardReservesSpace": false,
+            "autoShow": false,
+            "keyboardOpacity": 0.9,
+            "keyboardReservesSpace": true,
             "keyboardPosition": "bottom"
         })
 
@@ -196,17 +181,19 @@ Panel {
         onLoadFailed: root.keyboardShown = false
     }
 
-    // Keyboard on the left, settings on the right, in that order because the
-    // keyboard is the one you reach for and the settings are the one you set
-    // once. A Grid rather than a Row so a vertical bar stacks them without a
-    // second layout to keep in step.
+    Process {
+        id: modeToggle
+        command: ["hyprctl", "eval", "require(\"hypr.gimbal_sp4\").toggle()"]
+        running: false
+    }
+
+    // Keyboard, mode, and settings remain visible in both modes.
     Grid {
         id: buttons
 
-        visible: root.folded
         anchors.centerIn: parent
-        rows: root.vertical ? 2 : 1
-        columns: root.vertical ? 1 : 2
+        rows: root.vertical ? 3 : 1
+        columns: root.vertical ? 1 : 3
 
         BarIconButton {
             id: keyboardButton
@@ -221,10 +208,21 @@ Panel {
         }
 
         BarIconButton {
+            bar: root.bar
+            text: "\uf109"
+            tooltipText: root.folded ? "Leave tablet mode" : "Enter tablet mode"
+            active: root.folded
+            onPressed: function (b) {
+                if (!modeToggle.running)
+                    modeToggle.running = true;
+            }
+        }
+
+        BarIconButton {
             id: button
 
             bar: root.bar
-            tooltipText: "Gimbal"
+            tooltipText: "Gimbal SP4 settings"
             active: root.opened
             onPressed: function (b) {
                 root.toggle();
@@ -380,7 +378,7 @@ Panel {
 
                         anchors.left: parent.left
                         anchors.verticalCenter: parent.verticalCenter
-                        text: "Gimbal"
+                        text: "Gimbal SP4"
                         color: root.foreground
                         font.family: root.fontFamily
                         font.pixelSize: Style.font.subtitle
@@ -391,7 +389,7 @@ Panel {
 
                         anchors.right: parent.right
                         anchors.verticalCenter: parent.verticalCenter
-                        text: "Framework 12 tablet mode settings"
+                        text: root.folded ? "Tablet mode" : "Laptop mode"
                         color: root.folded ? Color.accent : root.dim
                         font.family: root.fontFamily
                         font.pixelSize: Style.font.caption

@@ -1,4 +1,9 @@
 # build output
+osk/gimbal-sp4-oskbd
+osk/virtual-keyboard-unstable-v1-client-protocol.h
+osk/virtual-keyboard-unstable-v1-protocol.c
+__pycache__/
+*.pyc
 daemon/fw12d
 daemon/*.o
 tools/vkprobe

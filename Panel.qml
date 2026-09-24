@@ -9,7 +9,7 @@
 // configured, stopped or replaced for it. The knobs stay, because some
 // things a keyboard is wanted for are not text fields.
 //
-// The keyboard is `fw12-oskbd` (see ../osk/). It uploads the system's own xkb
+// The keyboard is `gimbal-sp4-oskbd` (see ../osk/). It uploads the system's own xkb
 // keymap, so its keys arrive with the same keycodes as the built-in keyboard's
 // and Hyprland matches binds against them without any special configuration --
 // SUPER+K from the on-screen Framework key does what it does from the real
@@ -56,12 +56,12 @@ Item {
 
     readonly property string runtimeDir: Quickshell.env("XDG_RUNTIME_DIR") || "/tmp"
     readonly property string home: Quickshell.env("HOME") || ""
-    readonly property string modePath: runtimeDir + "/gimbal-mode"
-    readonly property string oskStatePath: runtimeDir + "/gimbal-osk"
-    readonly property string autoShowPath: runtimeDir + "/gimbal-autoshow"
-    readonly property string lookPath: runtimeDir + "/gimbal-look"
-    readonly property string padPath: home + "/.local/state/omarchy/gimbal-pads.json"
-    readonly property string userConfigPath: home + "/.config/omarchy/gimbal.json"
+    readonly property string modePath: runtimeDir + "/gimbal-sp4-mode"
+    readonly property string oskStatePath: runtimeDir + "/gimbal-sp4-osk"
+    readonly property string autoShowPath: runtimeDir + "/gimbal-sp4-autoshow"
+    readonly property string lookPath: runtimeDir + "/gimbal-sp4-look"
+    readonly property string padPath: home + "/.local/state/omarchy/gimbal-sp4-pads.json"
+    readonly property string userConfigPath: home + "/.config/omarchy/gimbal-sp4.json"
 
     property string tabletState: ""
     readonly property bool folded: tabletState !== "laptop"
@@ -202,7 +202,7 @@ Item {
         // Positional: layout, variant, options, the gutter to keep clear,
         // and how to start. Set right before each start because the last
         // argument depends on who is asking.
-        keyboard.command = ["fw12-oskbd", root.kbLayout || "us", root.kbVariant, "", "0", shown ? "shown" : "hidden"];
+        keyboard.command = ["gimbal-sp4-oskbd", root.kbLayout || "us", root.kbVariant, "", "0", shown ? "shown" : "hidden"];
         keyboard.running = true;
     }
 
@@ -302,7 +302,7 @@ Item {
     // runtime file on every such event, so a change takes effect at once and
     // nothing polls. Written whenever the answer changes, and once at start.
     // -----------------------------------------------------------------------
-    readonly property bool autoShow: root.opt("autoShow", true) === true
+    readonly property bool autoShow: root.opt("autoShow", false) === true
     readonly property bool autoShowAllowed: root.autoShow && !root.interruptionsBlocked
 
     onAutoShowAllowedChanged: autoShowFile.setText(root.autoShowAllowed ? "on" : "off")
@@ -326,10 +326,10 @@ Item {
     // with inotify, so a slider changes the board live.
     // -----------------------------------------------------------------------
     readonly property real keyboardOpacity: {
-        var v = Number(root.opt("keyboardOpacity", 0.5));
+        var v = Number(root.opt("keyboardOpacity", 0.9));
         return isNaN(v) ? 0.5 : Math.max(0.15, Math.min(1, v));
     }
-    readonly property bool keyboardReservesSpace: root.opt("keyboardReservesSpace", false) === true
+    readonly property bool keyboardReservesSpace: root.opt("keyboardReservesSpace", true) === true
     // bottom, middle or top. A terminal keeps its prompt at the bottom, and a
     // board that floats is best out of its way.
     readonly property string keyboardPosition: {
@@ -384,7 +384,7 @@ Item {
     }
 
     // Reachable from a keybind as
-    //   omarchy-shell shell call io.github.mechanicsunlocked.gimbal toggle ''
+    //   omarchy-shell shell call io.github.spitfulfr0g.gimbal-sp4 toggle ''
     // which is what SUPER+K in the Lua half runs. Aiming for a 32 px strip is
     // not always what you want.
     function toggle(arg) {
@@ -442,12 +442,12 @@ Item {
         // The gutter is 0: with the edge strips gone the keyboard has the
         // full width of the screen, which is worth the most in portrait where
         // the key pitch is tightest. The real command is set by startDaemon().
-        command: ["fw12-oskbd", root.kbLayout || "us", root.kbVariant, "", "0", "hidden"]
+        command: ["gimbal-sp4-oskbd", root.kbLayout || "us", root.kbVariant, "", "0", "hidden"]
         running: false
 
         onExited: function (exitCode) {
             if (exitCode !== 0)
-                console.warn("gimbal: fw12-oskbd exited " + exitCode);
+                console.warn("gimbal: gimbal-sp4-oskbd exited " + exitCode);
             // Its own unmap wrote `hidden` if it left cleanly. A crash did
             // not, and a stale `visible` would hold follow_mouse and light
             // the bar icon over nothing.
@@ -521,7 +521,7 @@ Item {
     // entry are the values the plugin sees"). Nothing new to learn and nothing
     // extra to install; an absent field falls back to the default below.
     //
-    //   { "id": "io.github.mechanicsunlocked.gimbal",
+    //   { "id": "io.github.spitfulfr0g.gimbal-sp4",
     //     "swipeUp":    "@keyboard",
     //     "swipeDown":  "@menu",
     //     "swipeRight": "hyprctl dispatch 'hl.dsp.focus({ workspace = \"r-1\" })'",
@@ -630,7 +630,7 @@ Item {
             try {
                 var list = JSON.parse(text()).plugins || [];
                 for (var i = 0; i < list.length; i++) {
-                    if (list[i] && list[i].id === "io.github.mechanicsunlocked.gimbal") {
+                    if (list[i] && list[i].id === "io.github.spitfulfr0g.gimbal-sp4") {
                         found = list[i];
                         break;
                     }
@@ -724,7 +724,7 @@ Item {
             if (name !== "openlayer" && name !== "closelayer")
                 return;
             var ns = String(event.data);
-            if ((name === "openlayer" && ns === "fw12tab-osk") || (name === "closelayer" && ns === "omarchy-menu"))
+            if ((name === "openlayer" && ns === "gimbal-sp4-osk") || (name === "closelayer" && ns === "omarchy-menu"))
                 root.restackPads();
         }
     }

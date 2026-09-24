@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+case ${1:-status} in
+    status)
+        cat "${XDG_RUNTIME_DIR:-/tmp}/gimbal-sp4-mode"
+        ;;
+    toggle)
+        hyprctl eval 'require("hypr.gimbal_sp4").toggle()'
+        ;;
+    tablet|laptop)
+        hyprctl eval "require(\"hypr.gimbal_sp4\").set(\"$1\")"
+        ;;
+    *)
+        echo 'Usage: gimbal-sp4-mode [status|toggle|tablet|laptop]' >&2
+        exit 2
+        ;;
+esac

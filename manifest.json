@@ -1,10 +1,10 @@
 {
   "schemaVersion": 1,
-  "id": "io.github.mechanicsunlocked.gimbal",
-  "name": "Gimbal",
-  "version": "1.0.0",
-  "author": "Sven Mathieu",
-  "description": "Tablet mode for the Framework Laptop 12 on Omarchy: rotation, an on-screen keyboard that appears when you tap a text field and works inside the menu, two thumb knobs for gestures, and a keypad on the lock screen. fcitx5 is left alone.",
+  "id": "io.github.spitfulfr0g.gimbal-sp4",
+  "name": "Gimbal SP4",
+  "version": "0.1.0",
+  "author": "Sven Mathieu and Gimbal SP4 contributors",
+  "description": "Touch keyboard and manual tablet mode for Surface Pro 4 on Omarchy 4.",
   "kinds": [
     "panel",
     "bar-widget"
@@ -15,8 +15,8 @@
     "barWidget": "BarWidget.qml"
   },
   "barWidget": {
-    "displayName": "Gimbal",
-    "description": "Tablet gestures, on-screen keyboard and rotation settings.",
+    "displayName": "Gimbal SP4",
+    "description": "Touch keyboard, tablet mode, and keyboard settings.",
     "category": "System",
     "allowMultiple": false,
     "defaultSection": "right"

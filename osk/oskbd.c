@@ -353,7 +353,7 @@ static gboolean watchdog(gpointer u) {
     Key *k = &keys[i];
     if (!k->down_code) continue;
     if (k->gest && !gtk_gesture_is_active(k->gest)) {
-      g_warning("fw12-oskbd: freeing stuck key %u (touch ended with no release)",
+      g_warning("gimbal-sp4-oskbd: freeing stuck key %u (touch ended with no release)",
                 k->down_code);
       /* The lost release was a contact too. Ending it here is what keeps the
        * contact count honest; freeing only the key left it one high for ever,
@@ -451,7 +451,7 @@ static const char *CSS_FMT =
  * Look: how solid the board is, and whether it pushes windows up.
  *
  * Both come from one runtime file the plugin writes from its settings,
- * $XDG_RUNTIME_DIR/gimbal-look, as `opacity=0.50 reserve=0`, watched with
+ * $XDG_RUNTIME_DIR/gimbal-sp4-look, as `opacity=0.50 reserve=0`, watched with
  * inotify so a slider in the settings panel changes the board live with no
  * restart and nothing polling. Legends stay opaque whatever the opacity: a
  * key you can read through is the point, a legend you cannot read is not.
@@ -476,7 +476,7 @@ static GFileMonitor *look_monitor;
 static void apply_geometry(void);
 
 static void read_look(void) {
-  char *path = g_strdup_printf("%s/gimbal-look", g_getenv("XDG_RUNTIME_DIR") ?: "/tmp");
+  char *path = g_strdup_printf("%s/gimbal-sp4-look", g_getenv("XDG_RUNTIME_DIR") ?: "/tmp");
   char *text = NULL;
   double opacity = 0.5; gboolean reserve = FALSE; pos_t pos = POS_BOTTOM;
   if (g_file_get_contents(path, &text, NULL, NULL)) {
@@ -502,35 +502,13 @@ static void on_look_changed(GFileMonitor *m, GFile *f, GFile *o, GFileMonitorEve
   read_look();
 }
 static void watch_look(void) {
-  char *path = g_strdup_printf("%s/gimbal-look", g_getenv("XDG_RUNTIME_DIR") ?: "/tmp");
+  char *path = g_strdup_printf("%s/gimbal-sp4-look", g_getenv("XDG_RUNTIME_DIR") ?: "/tmp");
   GFile *f = g_file_new_for_path(path);
   look_monitor = g_file_monitor_file(f, G_FILE_MONITOR_NONE, NULL, NULL);
   if (look_monitor) g_signal_connect(look_monitor, "changed", G_CALLBACK(on_look_changed), NULL);
   g_object_unref(f); g_free(path);
   read_look();
 }
-
-/* Where the Framework mark for the Super key lives. Checked in order so that a
- * rootless `make install` (into ~/.local) and a packaged one (into /usr) both
- * work without anything having to pass the path in. Falls through to a glyph
- * in the caller if none of these exist. */
-static const char *logo_path(void) {
-  static char buf[512];
-  const char *e = g_getenv("FW12TAB_LOGO");
-  if (e && *e) return e;
-#ifdef GIMBAL_DATADIR
-  if (g_file_test(GIMBAL_DATADIR "/framework-logo.svg", G_FILE_TEST_EXISTS))
-    return GIMBAL_DATADIR "/framework-logo.svg";
-#endif
-
-  const char *home = g_get_home_dir();
-  if (home) {
-    g_snprintf(buf, sizeof buf, "%s/.local/share/gimbal/framework-logo.svg", home);
-    if (g_file_test(buf, G_FILE_TEST_EXISTS)) return buf;
-  }
-  return "/usr/share/gimbal/framework-logo.svg";
-}
-
 
 /* ---------------------------------------------------------------------------
  * Sizing and placement, recomputed rather than fixed at startup.
@@ -562,7 +540,7 @@ static int g_gutter;   /* swipe gutter reserved on each side, in logical px */
  * SIGUSR1. Hidden is the default because the fold starts it and nothing has
  * asked for a keyboard yet.
  *
- * Whether it is on screen is published to $XDG_RUNTIME_DIR/gimbal-osk as one
+ * Whether it is on screen is published to $XDG_RUNTIME_DIR/gimbal-sp4-osk as one
  * word, `visible` or `hidden`, written from the window's own map and unmap so
  * it is the truth of the surface and not the last request. The bar icon, the
  * knobs and the Lua's follow_mouse all read it; this process is the only
@@ -589,11 +567,11 @@ static void write_state(const char *word) {
   if (!g_state_path) return;
   GError *err = NULL;
   if (!g_file_set_contents(g_state_path, word, -1, &err)) {
-    g_warning("fw12-oskbd: cannot write %s: %s", g_state_path, err->message);
+    g_warning("gimbal-sp4-oskbd: cannot write %s: %s", g_state_path, err->message);
     g_error_free(err);
   }
 }
-/* Self-test: with FW12_OSKBD_SELFTEST_KEY=<evdev code> in the environment,
+/* Self-test: with GIMBAL_SP4_SELFTEST_KEY=<evdev code> in the environment,
  * the board taps that key through its own press and release path 700 ms after
  * each map. It exists so the fcitx5 hide-on-key grace window can be measured
  * by a script rather than by a finger -- a key from any other virtual
@@ -613,7 +591,7 @@ static gboolean selftest_tap(gpointer u) {
 static void on_map(GtkWidget *w, gpointer u) {
   (void)w; (void)u;
   write_state("visible");
-  const char *t = g_getenv("FW12_OSKBD_SELFTEST_KEY");
+  const char *t = g_getenv("GIMBAL_SP4_SELFTEST_KEY");
   if (t && *t) g_timeout_add(700, selftest_tap, GUINT_TO_POINTER((guint)atoi(t)));
 }
 static void on_unmap(GtkWidget *w, gpointer u) { (void)w; (void)u; write_state("hidden"); }
@@ -697,7 +675,7 @@ static void apply_geometry(void) {
   int kbd_w = usable, kbd_h = (int)lround(usable / ASPECT);
   int cap = (int)lround(sh * MAXFRAC);
   if (kbd_h > cap) { kbd_h = cap; kbd_w = (int)lround(kbd_h * ASPECT); }
-  const char *he = g_getenv("FW12TAB_OSK_HEIGHT");
+  const char *he = g_getenv("GIMBAL_SP4_OSK_HEIGHT");
   if (he && *he) { kbd_h = atoi(he); kbd_w = (int)lround(kbd_h * ASPECT); }
 
   /* Key metrics follow the rendered size rather than a constant. The gap
@@ -835,8 +813,8 @@ static void restack(void) {
  * and it answers that with a Show of its own -- an echo, not a text field, so
  * the first Show after each registration is dropped.
  *
- * Both directions are gated on two runtime words: gimbal-mode must say
- * tablet, and gimbal-autoshow, written by the plugin from the autoShow
+ * Both directions are gated on two runtime words: gimbal-sp4-mode must say
+ * tablet, and gimbal-sp4-autoshow, written by the plugin from the autoShow
  * setting and the Moonlight hold-back, must not say off. Read per event, so
  * a change takes effect at once and nothing polls.
  *
@@ -907,7 +885,7 @@ static gboolean runtime_word_is(const char *name, const char *word) {
   return r;
 }
 static gboolean auto_allowed(void) {
-  return runtime_word_is("gimbal-mode", "tablet") && !runtime_word_is("gimbal-autoshow", "off");
+  return runtime_word_is("gimbal-sp4-mode", "tablet") && !runtime_word_is("gimbal-sp4-autoshow", "off");
 }
 
 /* Tell fcitx5 we are its keyboard. It answers with a Show of its own. */
@@ -989,7 +967,7 @@ static void on_name_acquired(GDBusConnection *c, const gchar *name, gpointer u) 
 }
 static void on_name_lost(GDBusConnection *c, const gchar *name, gpointer u) {
   (void)c; (void)u;
-  if (name_owned) g_warning("fw12-oskbd: lost %s; another on-screen keyboard took it?", name);
+  if (name_owned) g_warning("gimbal-sp4-oskbd: lost %s; another on-screen keyboard took it?", name);
   name_owned = FALSE;
 }
 /* fcitx5 restarting forgets us while we still hold the name it watches, so
@@ -1025,13 +1003,13 @@ static void fcitx_hand_back(void) {
   GError *err = NULL;
   GVariantBuilder b;
   g_variant_builder_init(&b, G_VARIANT_TYPE("a(ss)"));
-  g_variant_builder_add(&b, "(ss)", "program", "fw12-oskbd");
+  g_variant_builder_add(&b, "(ss)", "program", "gimbal-sp4-oskbd");
   GVariant *r = g_dbus_connection_call_sync(bus, "org.fcitx.Fcitx5", "/org/freedesktop/portal/inputmethod",
                                             "org.fcitx.Fcitx.InputMethod1", "CreateInputContext",
                                             g_variant_new("(a(ss))", &b), G_VARIANT_TYPE("(oay)"),
                                             G_DBUS_CALL_FLAGS_NONE, 300, NULL, &err);
   if (!r) {
-    g_warning("fw12-oskbd: cannot hand fcitx5 its UI back: %s", err ? err->message : "?");
+    g_warning("gimbal-sp4-oskbd: cannot hand fcitx5 its UI back: %s", err ? err->message : "?");
     g_clear_error(&err);
     return;
   }
@@ -1110,7 +1088,7 @@ static void on_hypr_line(GObject *src, GAsyncResult *res, gpointer u) {
   char *line = g_data_input_stream_read_line_finish(G_DATA_INPUT_STREAM(src), res, NULL, &err);
   if (!line) {
     /* End of stream: Hyprland is going away, and so is this session. */
-    if (err) { g_warning("fw12-oskbd: hyprland event socket: %s", err->message); g_error_free(err); }
+    if (err) { g_warning("gimbal-sp4-oskbd: hyprland event socket: %s", err->message); g_error_free(err); }
     return;
   }
   on_hypr_event(line);
@@ -1122,7 +1100,7 @@ static void hypr_subscribe(void) {
   const char *rt = g_getenv("XDG_RUNTIME_DIR");
   const char *sig = g_getenv("HYPRLAND_INSTANCE_SIGNATURE");
   if (!rt || !sig) {
-    g_warning("fw12-oskbd: no Hyprland instance in the environment; not restacking above the menu");
+    g_warning("gimbal-sp4-oskbd: no Hyprland instance in the environment; not restacking above the menu");
     return;
   }
   char *path = g_strdup_printf("%s/hypr/%s/.socket2.sock", rt, sig);
@@ -1131,7 +1109,7 @@ static void hypr_subscribe(void) {
   GError *err = NULL;
   hypr_conn = g_socket_client_connect(client, G_SOCKET_CONNECTABLE(addr), NULL, &err);
   if (!hypr_conn) {
-    g_warning("fw12-oskbd: cannot connect to %s: %s", path, err ? err->message : "unknown error");
+    g_warning("gimbal-sp4-oskbd: cannot connect to %s: %s", path, err ? err->message : "unknown error");
     g_clear_error(&err);
   } else {
     hypr_events = g_data_input_stream_new(g_io_stream_get_input_stream(G_IO_STREAM(hypr_conn)));
@@ -1154,7 +1132,7 @@ static void on_activate(GtkApplication *app, gpointer u) {
   if (g_gutter < 0 || g_gutter > 200) g_gutter = 30;
   gboolean start_shown = argn > 5 && g_str_equal(argv[5], "shown");
 
-  g_state_path = g_strdup_printf("%s/gimbal-osk", g_getenv("XDG_RUNTIME_DIR") ?: "/tmp");
+  g_state_path = g_strdup_printf("%s/gimbal-sp4-osk", g_getenv("XDG_RUNTIME_DIR") ?: "/tmp");
 
   GtkWidget *win = gtk_application_window_new(app);
   gtk_layer_init_for_window(GTK_WINDOW(win));
@@ -1163,7 +1141,7 @@ static void on_activate(GtkApplication *app, gpointer u) {
    * the same layer is what makes the bounce above possible at all. */
   gtk_layer_set_layer(GTK_WINDOW(win), GTK_LAYER_SHELL_LAYER_OVERLAY);
   gtk_layer_set_keyboard_mode(GTK_WINDOW(win), GTK_LAYER_SHELL_KEYBOARD_MODE_NONE);
-  gtk_layer_set_namespace(GTK_WINDOW(win), "fw12tab-osk");
+  gtk_layer_set_namespace(GTK_WINDOW(win), "gimbal-sp4-osk");
   /* Anchors are set in apply_geometry(), from the look. */
 
   /* GtkFixed, not GtkGrid.
@@ -1205,7 +1183,7 @@ static void on_activate(GtkApplication *app, gpointer u) {
        * for these and keeps reporting the bad name. A virtual keyboard with
        * no keymap is worse than a wrong one: the first key would be a
        * protocol error and the process would abort. */
-      g_warning("fw12-oskbd: layout '%s' variant '%s' does not compile; using us", layout, variant);
+      g_warning("gimbal-sp4-oskbd: layout '%s' variant '%s' does not compile; using us", layout, variant);
       g_keymap = upload_keymap("us", "", "");
     }
     if (!g_keymap) { zwp_virtual_keyboard_v1_destroy(vkbd); vkbd = NULL; }
@@ -1213,7 +1191,7 @@ static void on_activate(GtkApplication *app, gpointer u) {
      * key (FINDINGS 3.1e). */
     wl_display_roundtrip(wl_dpy);
   }
-  if (!g_keymap) g_warning("fw12-oskbd: no virtual keyboard / keymap; keys will not type");
+  if (!g_keymap) g_warning("gimbal-sp4-oskbd: no virtual keyboard / keymap; keys will not type");
 
   for (int i = 0; i < NKEYS; i++) {
     Key *k = &keys[i];
@@ -1224,17 +1202,7 @@ static void on_activate(GtkApplication *app, gpointer u) {
     gtk_widget_add_css_class(key, "key");
     GtkWidget *child;
     if (k->type == KT_SUPER) {
-      const char *lp = logo_path();
-      if (g_file_test(lp, G_FILE_TEST_EXISTS)) {
-        /* GtkImage rather than GtkPicture: a picture asks for the SVG's own
-         * natural size and a size request only ever raises that floor, so it
-         * filled the key however small the request. An image has an explicit
-         * pixel size, which is the thing being set here. */
-        child = gtk_image_new_from_file(lp);
-        k->logo = child;   /* sized against the key in apply_geometry() */
-      } else {
-        child = gtk_label_new("❖");   /* fallback glyph if the logo asset is missing */
-      }
+      child = gtk_label_new("❖");
     } else {
       child = gtk_label_new(k->label ? k->label : "");
       /* Without this a label refuses to be narrower than its text, every key
@@ -1309,7 +1277,7 @@ int main(int argc, char **argv) {
    * start a second one -- two processes, one bus name, one confused bar icon.
    * Die with the parent instead. */
   prctl(PR_SET_PDEATHSIG, SIGTERM);
-  GtkApplication *app = gtk_application_new("org.fw12.osk", G_APPLICATION_NON_UNIQUE);
+  GtkApplication *app = gtk_application_new("io.github.spitfulfr0g.gimbalsp4.osk", G_APPLICATION_NON_UNIQUE);
   /* Before anything else: the plugin may signal a show or a hide within
    * milliseconds of starting us, and until these are installed SIGUSR1 and
    * SIGUSR2 mean "terminate". The handlers cope with a window that does not
