@@ -1,6 +1,14 @@
 #!/usr/bin/env bash
-# Install only the unlocked-session Surface Pro 4 keyboard and bar controls.
+# Install the Surface Pro 4 keyboard, bar controls, and lock-screen keypad.
+# Pass --without-lock to leave Omarchy's lock screen untouched.
 set -euo pipefail
+
+install_lock=1
+case ${1:-} in
+    '') ;;
+    --without-lock) install_lock=0 ;;
+    *) echo 'Usage: install.sh [--without-lock]' >&2; exit 2 ;;
+esac
 
 plugin_id=io.github.spitfulfr0g.gimbal-sp4
 source_dir=$(cd "$(dirname "$0")" && pwd)
@@ -12,7 +20,7 @@ hypr_config="$HOME/.config/hypr/hyprland.lua"
 }
 command -v omarchy-shell >/dev/null || { echo 'Omarchy 4 shell is required.' >&2; exit 1; }
 command -v hyprctl >/dev/null || { echo 'Hyprland is required.' >&2; exit 1; }
-for command_name in jq rg python3; do
+for command_name in jq rg python3 patch; do
     command -v "$command_name" >/dev/null || { echo "Missing command: $command_name" >&2; exit 1; }
 done
 [[ -f $hypr_config ]] || { echo "Missing $hypr_config" >&2; exit 1; }
@@ -59,7 +67,7 @@ fi
 # These Omarchy popups use exclusive keyboard focus. Gimbal's Wayland keyboard
 # needs them to use on-demand focus while the Surface is in tablet mode so a
 # finger on a key reaches the keyboard instead of the popup's full-screen
-# surface. Clone only unlocked-session popups; the secure lock screen is later.
+# surface. The lock screen is handled separately below.
 shell_config="$HOME/.config/omarchy/shell.json"
 if [[ -f $shell_config ]]; then
     cp -p "$shell_config" "$shell_config.gimbal-sp4.bak.$(date +%Y%m%d%H%M%S)"
@@ -77,7 +85,42 @@ for spec in menu:Menu.qml polkit:PolkitAgent.qml emojis:Emojis.qml clipboard:Cli
     fi
     python3 "$source_dir/bin/patch-overlays.py" "$clone/$entry"
 done
+
+# The lock screen is an ext-session-lock surface: while locked, no layer
+# surface such as the on-screen keyboard is drawn or touchable. Clone Omarchy's
+# lock plugin and add a keypad drawn by the lock view itself. Each install
+# copies the current stock files and reapplies the patch, so an Omarchy update
+# is either patched again or refused, never silently mixed with old files.
+lock_clone="$HOME/.config/omarchy/plugins/${USER:-$(id -un)}.lock"
+lock_message='Lock-screen files were not changed.'
+if (( install_lock )); then
+    stock_lock=$(omarchy-plugin-catalog | jq -r '.[] | select(.firstParty and .id == "omarchy.lock") | .sourceDir')
+    patched_view=$(mktemp)
+    if [[ -d $lock_clone && ! -f $lock_clone/.gimbal-sp4-owned ]]; then
+        echo "Existing $lock_clone belongs to the user; not patching it." >&2
+    elif [[ ! -f $stock_lock/LockView.qml ]] || ! cp "$stock_lock/LockView.qml" "$patched_view" \
+            || ! patch --quiet --fuzz=0 --no-backup-if-mismatch -r - "$patched_view" < "$source_dir/lock-clone/LockView.patch"; then
+        echo "Omarchy's LockView.qml has changed; the lock keypad was not installed." >&2
+        if [[ -f $lock_clone/.gimbal-sp4-owned ]]; then
+            omarchy plugin remove "${USER:-$(id -un)}.lock" --yes >/dev/null
+            echo 'Removed the previous lock keypad; the stock lock screen is active.' >&2
+        fi
+    else
+        if [[ ! -d $lock_clone ]]; then
+            omarchy plugin clone omarchy.lock >/dev/null
+            touch "$lock_clone/.gimbal-sp4-owned"
+        fi
+        install -m644 "$stock_lock/Service.qml" "$lock_clone/Service.qml"
+        install -m644 "$patched_view" "$lock_clone/LockView.qml"
+        install -m644 "$source_dir/lock-clone/LockKeypad.qml" "$lock_clone/LockKeypad.qml"
+        lock_message='The lock screen shows a touch keypad; lock once with the Type Cover attached to check it.'
+    fi
+    rm -f "$patched_view"
+fi
+
+# Qt caches loaded components, so the lock view only changes after a restart.
 omarchy restart shell >/dev/null
 
 echo 'Gimbal SP4 installed. Tap its keyboard icon in the bar to show or hide the keyboard.'
-echo 'The adjacent tablet icon switches manual tablet mode. Lock-screen files were not changed.'
+echo 'The adjacent tablet icon switches manual tablet mode.'
+echo "$lock_message"

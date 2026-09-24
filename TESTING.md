@@ -161,20 +161,24 @@ then went away" are all useful.
 
 ## The lock screen (checkpoint 4)
 
-Only with the `phase4-lock` branch's clone installed (see
-`lock-clone/README.md`). The clone is the stock lock screen plus a keypad;
-until you have used it once, keep a way to unlock that does not depend on it.
+On the Surface Pro 4, `./install.sh` installs the clone unless given
+`--without-lock` (see `lock-clone/README.md`). The clone is the stock lock
+screen plus a keypad. Keep the Type Cover attached until every item below
+has passed once.
 
 - [ ] Laptop mode, `SUPER + CTRL + L`: the lock screen looks exactly as
-      before. No keypad.
-- [ ] Folded, lock: the keypad is already there (it opens on fold; ⌄ hides
-      it, a tap on the field brings it back). Type the password on it; Enter
-      unlocks. If nothing is there, `journalctl --user -t omarchy-shell | grep
-      'gimbal lock'` says whether the fold reached it.
+      before. No keypad. Mouse and touchpad clicks on the field only focus it.
+- [ ] Laptop mode, locked: a finger or pen tap on the field opens the keypad.
+      Type the password on it; ⏎ unlocks.
+- [ ] Tablet mode, lock: the keypad is already there (⌄ hides it, a tap on
+      the field brings it back). Type the password on it; ⏎ unlocks. If
+      nothing is there, `journalctl --user -t omarchy-shell | grep
+      'gimbal-sp4 lock'` says which mode the lock view read.
 - [ ] A wrong password shows the error state, and the keypad stays.
-- [ ] Fingerprint still unlocks with the keypad up.
-- [ ] Leave it to idle-lock while folded; unlock by keypad.
-- [ ] Fold, lock, unfold: unlock with the physical keyboard.
+- [ ] Fingerprint still unlocks with the keypad up (if a reader is enrolled).
+- [ ] Leave it to idle-lock in tablet mode; unlock by keypad.
+- [ ] Lock in tablet mode with the Type Cover attached; unlock with the
+      physical keyboard.
 
 ## Gestures and the safety net
 

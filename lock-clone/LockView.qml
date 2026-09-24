@@ -45,27 +45,27 @@ Item {
   signal clearFailureRequested()
   signal wakeRequested()
 
-  // ---- gimbal: a keypad while the machine is folded --------------------
+  // ---- gimbal-sp4: a touch keypad for the password ----------------------
   //
   // Under ext-session-lock only lock surfaces render or receive input, so the
-  // session keyboard cannot appear here by protocol. The fold state comes
-  // from the same runtime file Gimbal's knobs read; only the word `tablet`
-  // counts, so a missing file means laptop mode and nothing here changes.
+  // session keyboard cannot appear here by protocol. The mode comes from the
+  // runtime file the Surface adapter writes; only the word `tablet` counts,
+  // so a missing file means laptop mode.
   //
-  // The keypad opens by itself the moment the machine is folded -- locked in
-  // laptop mode, then folded, there is no other way in -- and the ⌄ key puts
-  // it away; a tap on the field brings it back. One log line per fold change
-  // and per open, in the same voice as the lock service's own, so a fold
-  // that arrived under lock leaves a trace in the journal.
-  property bool folded: false
+  // In tablet mode the keypad opens with the lock screen, and the ⌄ key puts
+  // it away. The mode is a manual choice that cannot be changed while locked,
+  // so a finger or pen tap on the field opens the keypad in either mode: a
+  // Surface locked in laptop mode and then undocked still has a way in.
+  // Mouse and touchpad clicks reach the field exactly as before.
+  property bool tablet: false
   property bool keypadOpen: false
-  property string gimbalModePath: (Quickshell.env("XDG_RUNTIME_DIR") || "/tmp") + "/gimbal-mode"
+  property string gimbalModePath: (Quickshell.env("XDG_RUNTIME_DIR") || "/tmp") + "/gimbal-sp4-mode"
 
-  onFoldedChanged: {
-    console.log("gimbal lock: folded=" + folded + " inputEnabled=" + inputEnabled)
-    keypadOpen = folded
+  onTabletChanged: {
+    console.log("gimbal-sp4 lock: tablet=" + tablet + " inputEnabled=" + inputEnabled)
+    keypadOpen = tablet
   }
-  onKeypadOpenChanged: console.log("gimbal lock: keypadOpen=" + keypadOpen)
+  onKeypadOpenChanged: console.log("gimbal-sp4 lock: keypadOpen=" + keypadOpen)
 
   // Same gate as the TextInput: nothing while a check is running or before
   // input is enabled, or typed-ahead characters land and then vanish.
@@ -93,8 +93,8 @@ Item {
     watchChanges: true
     printErrors: false
     onFileChanged: reload()
-    onLoaded: root.folded = text().trim() === "tablet"
-    onLoadFailed: root.folded = false
+    onLoaded: root.tablet = text().trim() === "tablet"
+    onLoadFailed: root.tablet = false
   }
   // ----------------------------------------------------------------------
 
@@ -252,18 +252,22 @@ Item {
         elide: Text.ElideRight
       }
 
-      // gimbal: while folded, a tap on the field opens the keypad. Disabled
-      // in laptop mode, where a disabled MouseArea lets every event through
-      // to the TextInput exactly as before. Cursor placement in a masked
-      // field is nothing lost; focus is given back explicitly.
-      MouseArea {
+      // gimbal-sp4: a finger or pen tap on the field opens the keypad in
+      // either mode. The handler takes the tap, so focus is given back
+      // explicitly; mouse and touchpad input is not accepted here and reaches
+      // the TextInput exactly as before.
+      Item {
         anchors.fill: parent
-        enabled: root.folded
-        onPressed: function(mouse) {
-          root.keypadOpen = true
-          root.wakeRequested()
-          root.forcePasswordFocus()
-          mouse.accepted = true
+
+        TapHandler {
+          acceptedDevices: PointerDevice.TouchScreen | PointerDevice.Stylus
+          gesturePolicy: TapHandler.ReleaseWithinBounds
+          onPressedChanged: {
+            if (!pressed) return
+            root.keypadOpen = true
+            root.wakeRequested()
+            root.forcePasswordFocus()
+          }
         }
       }
 
@@ -286,8 +290,9 @@ Item {
       }
     }
 
-    // gimbal: the keypad. Below the field in both orientations -- on the
-    // 1200x750 panel the field ends at y 408 and this starts at 442 -- and
+    // gimbal-sp4: the keypad. Below the field in both orientations -- on the
+    // SP4's 1368x912 logical panel the field ends at y 490 and this starts at
+    // 604 -- and
     // never above it: the key height shrinks before the top row could reach
     // the field, so the dots stay in view while you type.
     LockKeypad {
@@ -296,7 +301,7 @@ Item {
       anchors.bottomMargin: 24
       width: Math.min(parent.width - 32, 900)
       keyHeight: Math.max(36, Math.min(52, Math.floor((parent.height / 2 - root.fieldHeight / 2 - 24 - 24 - 4 * 6) / 5)))
-      visible: root.folded && root.keypadOpen
+      visible: root.keypadOpen
       onTyped: function(ch) { root.keypadType(ch) }
       onBackspace: root.keypadBackspace()
       onSubmit: root.keypadSubmit()

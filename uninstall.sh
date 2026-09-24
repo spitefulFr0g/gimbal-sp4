@@ -5,7 +5,7 @@ plugin_id=io.github.spitfulfr0g.gimbal-sp4
 hypr_config="$HOME/.config/hypr/hyprland.lua"
 
 omarchy plugin remove "$plugin_id" --yes 2>/dev/null || true
-for name in menu polkit emojis clipboard reminders; do
+for name in menu polkit emojis clipboard reminders lock; do
     clone="$HOME/.config/omarchy/plugins/${USER:-$(id -un)}.$name"
     if [[ -f $clone/.gimbal-sp4-owned ]]; then
         omarchy plugin remove "${USER:-$(id -un)}.$name" --yes >/dev/null

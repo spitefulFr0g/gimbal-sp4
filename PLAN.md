@@ -4,6 +4,8 @@ Drafted 2026-09-23. Target: Omarchy 4 on the Surface Pro 4, with an on-screen ke
 
 Implementation update, 2026-09-23: milestones 0–2 are implemented and installed on this SP4. The plugin validates, the keyboard builds and maps, the dock reserves and releases screen space, manual mode persists, and a synthetic key reached a focused Foot terminal. Real finger input in the bar, browser, terminal, and Omarchy popups remains to be checked by hand. Milestones 3 and 4 remain future work.
 
+Implementation update, 2026-09-23 (later): milestone 4's lock keypad is implemented and installed. The patch applies exactly to Omarchy 4.0.4's `LockView.qml`, the clone loads without QML errors, and a lock preview showed a stock view in laptop mode and the keypad in tablet mode. A real lock, touch unlock, wrong password, idle lock, and physical-keyboard fallback remain to be tested by hand. This SP4 has no fingerprint reader enrolled. Milestone 3 remains future work.
+
 ## Why fork Gimbal
 
 [Gimbal](https://github.com/mechanicsunlocked/gimbal) already has the desired Omarchy bar widget, a Wayland keyboard that can send modifiers and shortcuts, a settings panel, and a lock-screen keypad. Its [MIT license](https://github.com/mechanicsunlocked/gimbal/blob/master/LICENSE) permits a fork with attribution. [`omarchy-surface-touch`](https://github.com/javon27/omarchy-surface-touch) is a useful Surface keyboard and touch-patch reference, but has no integrated keyboard bar icon or movable keyboard. Begin from a pinned Gimbal commit and keep the original project as an upstream remote so later fixes can be reviewed and merged.
