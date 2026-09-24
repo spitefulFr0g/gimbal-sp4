@@ -159,6 +159,27 @@ then went away" are all useful.
 - [ ] If you have a Bluetooth keyboard: type on it while folded. The on-screen
       keyboard goes and stays away for text fields until you tap a knob.
 
+## Following the Type Cover
+
+Turn on **Follow the Type Cover** in the settings panel first. `gimbal-sp4-mode
+status` and `gimbal-sp4-mode cover` show what the Lua half decided.
+
+- [ ] Detach the cover: tablet mode within about a second.
+- [ ] Reattach it: laptop mode about a second after the cover enumerates.
+- [ ] With the cover attached, choose tablet mode with the bar icon. The panel
+      says a manual choice is holding; `hyprctl reload` and `omarchy restart
+      shell` keep it. Detaching, then reattaching, follows the cover again.
+- [ ] Suspend with the cover attached, resume: still laptop mode, no flicker
+      into tablet mode.
+- [ ] Suspend, detach, resume: tablet mode about five seconds after resume.
+      Suspend, reattach, resume: laptop mode.
+- [ ] Log out and back in with the cover detached, then attached. The mode
+      matches the cover.
+- [ ] Turn the setting off: detach and reattach change nothing.
+- [ ] Lock, detach the cover while locked: a tap on the password field still
+      opens the keypad.
+- [ ] The bar keyboard icon and `SUPER+B` work in both modes throughout.
+
 ## The lock screen (checkpoint 4)
 
 On the Surface Pro 4, `./install.sh` installs the clone unless given

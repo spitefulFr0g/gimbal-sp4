@@ -5,6 +5,9 @@ case ${1:-status} in
     status)
         cat "${XDG_RUNTIME_DIR:-/tmp}/gimbal-sp4-mode"
         ;;
+    cover)
+        cat "${XDG_RUNTIME_DIR:-/tmp}/gimbal-sp4-cover"
+        ;;
     toggle)
         hyprctl eval 'require("hypr.gimbal_sp4").toggle()'
         ;;
@@ -12,7 +15,7 @@ case ${1:-status} in
         hyprctl eval "require(\"hypr.gimbal_sp4\").set(\"$1\")"
         ;;
     *)
-        echo 'Usage: gimbal-sp4-mode [status|toggle|tablet|laptop]' >&2
+        echo 'Usage: gimbal-sp4-mode [status|cover|toggle|tablet|laptop]' >&2
         exit 2
         ;;
 esac

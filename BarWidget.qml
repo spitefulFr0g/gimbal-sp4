@@ -64,6 +64,7 @@ Panel {
     readonly property string runtimeDir: Quickshell.env("XDG_RUNTIME_DIR") || "/tmp"
     readonly property string modePath: runtimeDir + "/gimbal-sp4-mode"
     readonly property string oskStatePath: runtimeDir + "/gimbal-sp4-osk"
+    readonly property string coverPath: runtimeDir + "/gimbal-sp4-cover"
 
     // The bar host sizes a slot around whatever the widget asks for, so two
     // buttons need a stated width; a single one could get away with filling
@@ -81,6 +82,9 @@ Panel {
     property string tabletState: ""
     readonly property bool folded: tabletState !== "laptop"
 
+    // What the Lua half last settled on: attached, detached, or unknown.
+    property string coverState: ""
+
     property var conf: ({})
 
     // Kept identical to Panel.qml's own defaults. They are repeated rather
@@ -94,6 +98,7 @@ Panel {
             "swipeLeft": "hyprctl dispatch 'hl.dsp.focus({ workspace = \"r+1\" })'",
             "blockOnMoonlight": true,
             "autoShow": false,
+            "autoTypeCover": false,
             "keyboardOpacity": 0.9,
             "keyboardReservesSpace": true,
             "keyboardPosition": "bottom"
@@ -161,6 +166,35 @@ Panel {
         onFileChanged: reload()
         onLoaded: root.tabletState = text().trim()
         onLoadFailed: root.tabletState = ""
+    }
+
+    FileView {
+        id: coverFile
+
+        path: root.coverPath
+        watchChanges: true
+        printErrors: false
+
+        onFileChanged: reload()
+        onLoaded: root.coverState = text().trim()
+        onLoadFailed: root.coverState = ""
+    }
+
+    // What the settings panel says under the Type Cover switch: which way
+    // the cover is and, when the mode disagrees with it, that a choice made
+    // by hand is holding.
+    readonly property string coverNote: {
+        var auto = root.value("autoTypeCover") === true;
+        var cover = root.coverState === "attached" || root.coverState === "detached" ? root.coverState : "";
+        var mode = root.folded ? "tablet" : "laptop";
+        if (!auto)
+            return "Off, only the tablet button in the bar changes the mode." + (cover ? " The Type Cover is " + cover + "." : "");
+        if (!cover)
+            return "The Type Cover's state is not known yet, so the mode stays as it is.";
+        var expected = cover === "detached" ? "tablet" : "laptop";
+        if (mode === expected)
+            return "The Type Cover is " + cover + ", so " + mode + " mode.";
+        return "The Type Cover is " + cover + ", but " + mode + " mode was chosen by hand. It holds until the cover is " + (cover === "attached" ? "detached" : "reattached") + ".";
     }
 
     // The keyboard daemon writes one word here, `visible` or `hidden`, from
@@ -394,6 +428,53 @@ Panel {
                         font.family: root.fontFamily
                         font.pixelSize: Style.font.caption
                     }
+                }
+
+                PanelSeparator {
+                    width: parent.width
+                    foreground: root.foreground
+                }
+
+                // ---------- Tablet mode ----------
+                PanelSectionHeader {
+                    text: "TABLET MODE"
+                    foreground: root.foreground
+                    fontFamily: root.fontFamily
+                }
+
+                Item {
+                    width: parent.width
+                    implicitHeight: autoCoverLabel.implicitHeight
+
+                    Text {
+                        id: autoCoverLabel
+
+                        anchors.left: parent.left
+                        anchors.verticalCenter: parent.verticalCenter
+                        text: "Follow the Type Cover"
+                        color: root.foreground
+                        font.family: root.fontFamily
+                        font.pixelSize: Style.font.caption
+                    }
+
+                    ToggleSwitch {
+                        anchors.right: parent.right
+                        anchors.verticalCenter: autoCoverLabel.verticalCenter
+                        trackHeight: Math.round(autoCoverLabel.font.pixelSize * 1.2)
+                        cursorPad: Style.space(3)
+                        foreground: root.foreground
+                        checked: root.value("autoTypeCover") === true
+                        onToggled: root.setValue("autoTypeCover", !(root.value("autoTypeCover") === true))
+                    }
+                }
+
+                Text {
+                    width: parent.width
+                    wrapMode: Text.WordWrap
+                    text: "Detaching the cover enters tablet mode and reattaching it returns to laptop mode. " + root.coverNote
+                    color: root.dim
+                    font.family: root.fontFamily
+                    font.pixelSize: Style.font.caption
                 }
 
                 PanelSeparator {

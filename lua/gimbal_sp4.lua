@@ -1,13 +1,16 @@
--- Manual tablet mode for Surface Pro 4. The Omarchy shell, keyboard daemon,
--- and later lock view consume only the runtime mode word; hardware detection
--- can be added here without changing those readers.
+-- Tablet mode for Surface Pro 4. The Omarchy shell, keyboard daemon, and lock
+-- view consume only the runtime mode word; the Type Cover adapter below is
+-- the one place that knows what Surface hardware looks like.
 local M = {}
 local runtime = (os.getenv("XDG_RUNTIME_DIR") or "/tmp")
 local home = assert(os.getenv("HOME"), "HOME is required")
 local mode_path = runtime .. "/gimbal-sp4-mode"
 local keyboard_path = runtime .. "/gimbal-sp4-osk"
 local autoshow_path = runtime .. "/gimbal-sp4-autoshow"
+local cover_path = runtime .. "/gimbal-sp4-cover"
+local autocover_path = runtime .. "/gimbal-sp4-autocover"
 local saved_path = home .. "/.config/omarchy/gimbal-sp4-mode"
+local saved_cover_path = home .. "/.config/omarchy/gimbal-sp4-cover"
 local previous_follow_mouse = nil
 local applied_follow_mouse = nil
 
@@ -33,14 +36,23 @@ local function refresh_focus()
     applied_follow_mouse = want
 end
 
--- Called by the bar, the CLI helper, and tests. Persist only explicit choices.
-function M.set(mode)
-    assert(mode == "tablet" or mode == "laptop", "mode must be tablet or laptop")
+-- Every mode change goes through here. The cover state it was made under is
+-- saved with it, so automatic mode can tell a cover change it has not acted
+-- on from one it has, across reloads and restarts.
+local function apply(mode)
     M.tablet = mode == "tablet"
     write_word(saved_path, mode)
     write_word(mode_path, mode)
+    if M.cover then write_word(saved_cover_path, M.cover) end
     refresh_focus()
     return mode
+end
+
+-- Called by the bar, the CLI helper, and tests. With automatic mode on, a
+-- choice made here holds until the Type Cover is next detached or reattached.
+function M.set(mode)
+    assert(mode == "tablet" or mode == "laptop", "mode must be tablet or laptop")
+    return apply(mode)
 end
 
 function M.toggle()
@@ -57,6 +69,74 @@ M.tablet = read_word(saved_path) ~= "laptop"
 write_word(mode_path, M.status())
 if not read_word(autoshow_path) then write_word(autoshow_path, "off") end
 
+-- ---------------------------------------------------------------------------
+-- Type Cover
+--
+-- The SP4 cover is a USB device that comes and goes with the magnets; there
+-- is no SW_TABLET_MODE switch, and Hyprland's Lua has no device events. So
+-- the input device list is read twice a second (about 0.25 ms each) and the
+-- cover is present while any device is named "... Surface Type Cover
+-- Keyboard". Matching the name rather than an event node or USB port keeps
+-- it working across re-enumeration.
+--
+-- Resume can drop the cover for a few seconds while USB re-enumerates, and
+-- at login it may not have enumerated yet. A detached reading therefore
+-- only counts after COVER_GRACE seconds have passed since load or resume.
+-- An unreadable list counts as neither, so the mode is left alone.
+-- ---------------------------------------------------------------------------
+local COVER_POLL_MS = 500
+local COVER_SETTLE = 2   -- consecutive agreeing reads
+local COVER_GRACE = 5    -- seconds
+local candidate, candidate_reads = nil, 0
+local last_poll = os.time()
+local grace_until = last_poll + COVER_GRACE
+local auto_word = read_word(autocover_path)
+
+local function read_cover()
+    local file = io.open("/proc/bus/input/devices", "r")
+    if not file then return nil end
+    local text = file:read("*a")
+    file:close()
+    if not text or text == "" then return nil end
+    return text:find('Name="[^"\n]*Surface Type Cover Keyboard"') and "attached" or "detached"
+end
+
+local function cover_mode()
+    return M.cover == "detached" and "tablet" or "laptop"
+end
+
+local function poll_cover()
+    local now = os.time()
+    -- Timers stop while suspended, so a long gap between polls is a resume.
+    if now - last_poll >= 3 then grace_until = now + COVER_GRACE end
+    last_poll = now
+
+    -- A missing word (the shell has not started yet) is not "off", so a
+    -- fresh login does not look like the switch being turned on.
+    local auto = read_word(autocover_path)
+    local switched_on = auto == "on" and auto_word == "off"
+    auto_word = auto
+
+    local seen = read_cover()
+    if seen ~= candidate then candidate, candidate_reads = seen, 0 end
+    candidate_reads = candidate_reads + 1
+    local settled = seen and candidate_reads >= COVER_SETTLE
+        and (seen == "attached" or now >= grace_until)
+
+    if settled and seen ~= M.cover then
+        M.cover = seen
+        write_word(cover_path, seen)
+        if auto == "on" and seen ~= read_word(saved_cover_path) then
+            apply(cover_mode())
+            return
+        end
+    end
+    if switched_on and M.cover then apply(cover_mode()) end
+end
+
+-- Until the first settled read the cover is unknown to the panel as well.
+write_word(cover_path, "unknown")
+
 -- The stock Omarchy configuration on this machine uses follow_mouse=1.
 -- Capture the configured value before changing it so laptop mode restores it.
 local option = hl.get_option and hl.get_option("input:follow_mouse")
@@ -67,4 +147,5 @@ hl.bind("SUPER + B", function()
 end, { description = "Toggle the Surface on-screen keyboard" })
 
 hl.timer(refresh_focus, { timeout = 250, type = "repeat" })
+hl.timer(poll_cover, { timeout = COVER_POLL_MS, type = "repeat" })
 return M
