@@ -103,13 +103,15 @@ local COVER_GRACE = 5    -- seconds
 local FOLD_PATH = "/run/gimbal-sp4-cover/fold"
 local FOLD_WORDS = { typing = true, between = true, folded = true, unknown = true }
 local HELPER_UNIT = "/etc/systemd/system/gimbal-sp4-coverd@.service"
-local helper_installed = false
-do
+
+-- Checked on every poll rather than once at load: install.sh reloads
+-- Hyprland before it installs the helper, and the helper can be added or
+-- removed at any time.
+local function helper_installed()
     local unit = io.open(HELPER_UNIT, "r")
-    if unit then
-        unit:close()
-        helper_installed = true
-    end
+    if not unit then return false end
+    unit:close()
+    return true
 end
 local present_since = nil
 local candidate, candidate_reads = nil, 0
@@ -137,7 +139,7 @@ local function read_cover(now)
         present_since = nil
         return "detached"
     end
-    if not helper_installed then return "attached" end
+    if not helper_installed() then return "attached" end
     present_since = present_since or now
     local fold = read_fold()
     if fold == "folded" then return "folded" end

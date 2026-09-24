@@ -132,6 +132,18 @@ fold = "folded"; run(3)
 expect("helper not installed: a fold file is ignored", "laptop", "attached")
 fold = nil
 
+-- 1a. The helper installed after the module loaded, as install.sh does (it
+-- reloads Hyprland before installing the helper): its word is still read.
+M = fresh(false)
+helper = true; fold = "typing"; run(1)
+expect("helper installed after load: typing", "laptop", "attached")
+fold = "folded"; run(1)
+expect("helper installed after load: folded -> tablet", "tablet", "folded")
+fold = "typing"; run(1)
+expect("helper installed after load: unfold -> laptop", "laptop", "attached")
+helper, fold = false, nil; run(1)
+expect("helper removed after load: detach-only again", "laptop", "attached")
+
 -- 1b. Helper installed but not running: attached once the grace has passed.
 M = fresh()
 expect("helper installed, no word: attached after grace", "laptop", "attached")
