@@ -210,7 +210,13 @@ need no hardware: `make -C coverd check`, `tests/coverd-sandbox.sh`, and
 - [ ] Turn **Follow the Type Cover** off: folding changes nothing, and the
       settings panel still says which way the cover is.
 - [ ] `./uninstall.sh` removes the helper's files and stops it; the cover
-      works as a keyboard throughout.
+      works as a keyboard throughout. Afterwards these all come back empty
+      or inactive: `ls /etc/udev/rules.d/70-gimbal-sp4-cover.rules
+      /etc/systemd/system/gimbal-sp4-coverd@.service /usr/local/lib/gimbal-sp4
+      /run/gimbal-sp4-cover`, `systemctl list-units 'gimbal-sp4-coverd@*'`,
+      `udevadm info /dev/hidraw* | grep -i gimbal`, and
+      `ls "$XDG_RUNTIME_DIR" ~/.config/omarchy | grep gimbal-sp4` (only
+      `gimbal-sp4.json` remains, and not even that after `--purge`).
 
 ## The lock screen (checkpoint 4)
 

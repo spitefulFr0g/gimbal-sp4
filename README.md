@@ -42,7 +42,7 @@ hyprctl configerrors
 
 If the bar button has not appeared, check that `~/.local/bin` is on the Omarchy shell's `PATH`, then inspect `journalctl --user -t omarchy-shell` for plugin errors. The installer prints the Hyprland config backup path.
 
-To remove this fork's files and bar widget, run `./uninstall.sh` from this repository. It does not remove other plugins or your saved settings. If the fold helper is installed, it removes that too, using `sudo`.
+To remove this fork, run `./uninstall.sh` from this repository. It removes the plugin and the Omarchy clones it made, the Hyprland module and its `require` line, the keyboard and `gimbal-sp4-mode`, and the saved mode and runtime state. If the fold helper is installed, it removes that last, using `sudo`: the udev rule, the unit and the binary. It then stops any running instance, which takes `/run/gimbal-sp4-cover` with it, and checks that nothing is left. The helper ran as a dynamic user, so no account remains. Your settings in `~/.config/omarchy/gimbal-sp4.json` and the knob positions are kept; `./uninstall.sh --purge` removes them too. It does not touch other plugins or the config backups the installer made.
 
 ## The fold helper
 
