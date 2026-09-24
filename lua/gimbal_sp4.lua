@@ -49,7 +49,8 @@ local function apply(mode)
 end
 
 -- Called by the bar, the CLI helper, and tests. With automatic mode on, a
--- choice made here holds until the Type Cover is next detached or reattached.
+-- choice made here holds until the Type Cover next changes state: detached,
+-- reattached, folded back or unfolded.
 function M.set(mode)
     assert(mode == "tablet" or mode == "laptop", "mode must be tablet or laptop")
     return apply(mode)
@@ -83,26 +84,71 @@ if not read_word(autoshow_path) then write_word(autoshow_path, "off") end
 -- at login it may not have enumerated yet. A detached reading therefore
 -- only counts after COVER_GRACE seconds have passed since load or resume.
 -- An unreadable list counts as neither, so the mode is left alone.
+--
+-- Folding the cover behind the screen keeps it on USB. Its fold position is
+-- only visible on its root-only hidraw node, which also carries keystrokes,
+-- so the optional fold helper (coverd/, a hardened system service) reads it
+-- and publishes one word to FOLD_PATH: typing, between, folded or unknown.
+-- While the cover is present, `folded` counts as folded and `typing` as
+-- attached; `between`, `unknown` or no word keeps the last settled present
+-- reading. With nothing settled since load or reattach, the helper gets
+-- COVER_GRACE seconds to publish before the cover counts as attached, so a
+-- cover reattached folded, or a reload while the helper restarts, does not
+-- pass through laptop mode. If the helper is not installed its file is not
+-- read at all, and this is exactly detach-only detection.
 -- ---------------------------------------------------------------------------
 local COVER_POLL_MS = 500
 local COVER_SETTLE = 2   -- consecutive agreeing reads
 local COVER_GRACE = 5    -- seconds
+local FOLD_PATH = "/run/gimbal-sp4-cover/fold"
+local FOLD_WORDS = { typing = true, between = true, folded = true, unknown = true }
+local HELPER_UNIT = "/etc/systemd/system/gimbal-sp4-coverd@.service"
+local helper_installed = false
+do
+    local unit = io.open(HELPER_UNIT, "r")
+    if unit then
+        unit:close()
+        helper_installed = true
+    end
+end
+local present_since = nil
 local candidate, candidate_reads = nil, 0
 local last_poll = os.time()
 local grace_until = last_poll + COVER_GRACE
 local auto_word = read_word(autocover_path)
 
-local function read_cover()
+-- One of FOLD_WORDS, or nil. Reads at most 16 bytes.
+local function read_fold()
+    local file = io.open(FOLD_PATH, "r")
+    if not file then return nil end
+    local text = file:read(16)
+    file:close()
+    local word = text and text:match("^(%l+)\n?$")
+    return FOLD_WORDS[word] and word or nil
+end
+
+local function read_cover(now)
     local file = io.open("/proc/bus/input/devices", "r")
     if not file then return nil end
     local text = file:read("*a")
     file:close()
     if not text or text == "" then return nil end
-    return text:find('Name="[^"\n]*Surface Type Cover Keyboard"') and "attached" or "detached"
+    if not text:find('Name="[^"\n]*Surface Type Cover Keyboard"') then
+        present_since = nil
+        return "detached"
+    end
+    if not helper_installed then return "attached" end
+    present_since = present_since or now
+    local fold = read_fold()
+    if fold == "folded" then return "folded" end
+    if fold == "typing" then return "attached" end
+    if M.cover == "folded" or M.cover == "attached" then return M.cover end
+    if now < present_since + COVER_GRACE then return nil end
+    return "attached"
 end
 
 local function cover_mode()
-    return M.cover == "detached" and "tablet" or "laptop"
+    return (M.cover == "detached" or M.cover == "folded") and "tablet" or "laptop"
 end
 
 local function poll_cover()
@@ -117,11 +163,11 @@ local function poll_cover()
     local switched_on = auto == "on" and auto_word == "off"
     auto_word = auto
 
-    local seen = read_cover()
+    local seen = read_cover(now)
     if seen ~= candidate then candidate, candidate_reads = seen, 0 end
     candidate_reads = candidate_reads + 1
     local settled = seen and candidate_reads >= COVER_SETTLE
-        and (seen == "attached" or now >= grace_until)
+        and (seen ~= "detached" or now >= grace_until)
 
     if settled and seen ~= M.cover then
         M.cover = seen

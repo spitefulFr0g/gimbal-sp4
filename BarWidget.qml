@@ -65,6 +65,8 @@ Panel {
     readonly property string modePath: runtimeDir + "/gimbal-sp4-mode"
     readonly property string oskStatePath: runtimeDir + "/gimbal-sp4-osk"
     readonly property string coverPath: runtimeDir + "/gimbal-sp4-cover"
+    // Written by the optional fold helper (coverd/), a system service.
+    readonly property string foldPath: "/run/gimbal-sp4-cover/fold"
 
     // The bar host sizes a slot around whatever the widget asks for, so two
     // buttons need a stated width; a single one could get away with filling
@@ -82,8 +84,12 @@ Panel {
     property string tabletState: ""
     readonly property bool folded: tabletState !== "laptop"
 
-    // What the Lua half last settled on: attached, detached, or unknown.
+    // What the Lua half last settled on: attached, detached, folded, or
+    // unknown.
     property string coverState: ""
+    // Whether the fold helper is running, so the settings text only talks
+    // about folding when folding can be seen.
+    property bool foldHelper: false
 
     property var conf: ({})
 
@@ -176,8 +182,30 @@ Panel {
         printErrors: false
 
         onFileChanged: reload()
-        onLoaded: root.coverState = text().trim()
+        onLoaded: {
+            var word = text().substring(0, 16).trim();
+            root.coverState = ["attached", "detached", "folded", "unknown"].indexOf(word) >= 0 ? word : "";
+            foldFile.reload();
+        }
         onLoadFailed: root.coverState = ""
+    }
+
+    // The helper replaces its file on each change and removes it on exit, so
+    // it is not watched; it is read again whenever the cover state changes
+    // and whenever the settings panel opens.
+    onOpenedChanged: {
+        if (root.opened)
+            foldFile.reload();
+    }
+
+    FileView {
+        id: foldFile
+
+        path: root.foldPath
+        printErrors: false
+
+        onLoaded: root.foldHelper = ["typing", "between", "folded", "unknown"].indexOf(text().substring(0, 16).trim()) >= 0
+        onLoadFailed: root.foldHelper = false
     }
 
     // What the settings panel says under the Type Cover switch: which way
@@ -185,16 +213,18 @@ Panel {
     // by hand is holding.
     readonly property string coverNote: {
         var auto = root.value("autoTypeCover") === true;
-        var cover = root.coverState === "attached" || root.coverState === "detached" ? root.coverState : "";
+        var cover = ["attached", "detached", "folded"].indexOf(root.coverState) >= 0 ? root.coverState : "";
+        var shown = cover === "folded" ? "folded back" : cover;
         var mode = root.folded ? "tablet" : "laptop";
         if (!auto)
-            return "Off, only the tablet button in the bar changes the mode." + (cover ? " The Type Cover is " + cover + "." : "");
+            return "Off, only the tablet button in the bar changes the mode." + (cover ? " The Type Cover is " + shown + "." : "");
         if (!cover)
             return "The Type Cover's state is not known yet, so the mode stays as it is.";
-        var expected = cover === "detached" ? "tablet" : "laptop";
+        var expected = cover === "attached" ? "laptop" : "tablet";
         if (mode === expected)
-            return "The Type Cover is " + cover + ", so " + mode + " mode.";
-        return "The Type Cover is " + cover + ", but " + mode + " mode was chosen by hand. It holds until the cover is " + (cover === "attached" ? "detached" : "reattached") + ".";
+            return "The Type Cover is " + shown + ", so " + mode + " mode.";
+        var until = cover === "detached" ? "reattached" : cover === "folded" ? "unfolded or detached" : root.foldHelper ? "detached or folded back" : "detached";
+        return "The Type Cover is " + shown + ", but " + mode + " mode was chosen by hand. It holds until the cover is " + until + ".";
     }
 
     // The keyboard daemon writes one word here, `visible` or `hidden`, from
@@ -471,7 +501,7 @@ Panel {
                 Text {
                     width: parent.width
                     wrapMode: Text.WordWrap
-                    text: "Detaching the cover enters tablet mode and reattaching it returns to laptop mode. " + root.coverNote
+                    text: (root.foldHelper ? "Detaching the cover or folding it behind the screen enters tablet mode; reattaching or unfolding it returns to laptop mode. " : "Detaching the cover enters tablet mode and reattaching it returns to laptop mode. ") + root.coverNote
                     color: root.dim
                     font.family: root.fontFamily
                     font.pixelSize: Style.font.caption

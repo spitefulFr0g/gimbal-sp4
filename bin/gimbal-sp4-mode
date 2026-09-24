@@ -6,7 +6,24 @@ case ${1:-status} in
         cat "${XDG_RUNTIME_DIR:-/tmp}/gimbal-sp4-mode"
         ;;
     cover)
-        cat "${XDG_RUNTIME_DIR:-/tmp}/gimbal-sp4-cover"
+        # attached, detached, folded or unknown, then what the optional fold
+        # helper reports: typing, between, folded, unknown or not running.
+        # Only known words are printed, never raw file contents.
+        cover=$(head -c 16 "${XDG_RUNTIME_DIR:-/tmp}/gimbal-sp4-cover" 2>/dev/null || true)
+        case $cover in
+            attached|detached|folded|unknown) echo "$cover" ;;
+            *) echo unknown ;;
+        esac
+        if [[ -e /run/gimbal-sp4-cover/fold ]]; then
+            fold=$(head -c 16 /run/gimbal-sp4-cover/fold 2>/dev/null || true)
+            case $fold in
+                typing|between|folded|unknown) ;;
+                *) fold='unreadable' ;;
+            esac
+        else
+            fold='not running'
+        fi
+        echo "fold helper: $fold"
         ;;
     toggle)
         hyprctl eval 'require("hypr.gimbal_sp4").toggle()'

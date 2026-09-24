@@ -180,6 +180,38 @@ status` and `gimbal-sp4-mode cover` show what the Lua half decided.
       opens the keypad.
 - [ ] The bar keyboard icon and `SUPER+B` work in both modes throughout.
 
+### Folding the cover back (fold helper)
+
+Install with `./install.sh --with-fold-helper` first. Offline checks, which
+need no hardware: `make -C coverd check`, `tests/coverd-sandbox.sh`, and
+`lua tests/cover_sim.lua`.
+
+- [ ] `systemctl status 'gimbal-sp4-coverd@*'` shows one instance, for the
+      cover's hidraw node, running as the dynamic user `gimbal-sp4-cover`.
+      `grep Seccomp /proc/<its main PID>/status` shows `Seccomp: 2`.
+      `gimbal-sp4-mode cover` says `fold helper: typing` with the cover flat.
+- [ ] `ls -l /dev/hidraw*`: the cover's node is still `root root` `crw-------`.
+- [ ] `journalctl -u 'gimbal-sp4-coverd@*'` shows only fold words and
+      start/stop lines. Type on the cover and use the touchpad: nothing new
+      is logged.
+- [ ] Fold the cover behind the screen: tablet mode within about a second.
+      Hold it part-way: the mode does not change. Unfold to typing: laptop.
+- [ ] With the cover flat, choose tablet mode with the bar icon; fold and
+      unfold: the mode follows the cover again (laptop after unfolding).
+- [ ] Folded, detach the cover: tablet mode stays, the cover shows
+      `detached`, and the helper instance stops. Reattach flat: laptop mode.
+      Detach, fold the cover back while detached, reattach: tablet mode
+      throughout, with no laptop flicker.
+- [ ] Folded, `hyprctl reload` and `omarchy restart shell`: still tablet.
+- [ ] Suspend flat, fold during suspend, resume: tablet mode. Suspend
+      folded, unfold during suspend, resume: laptop mode.
+- [ ] `sudo systemctl stop 'gimbal-sp4-coverd@*'`: `/run/gimbal-sp4-cover`
+      is gone and the mode stays as it was.
+- [ ] Turn **Follow the Type Cover** off: folding changes nothing, and the
+      settings panel still says which way the cover is.
+- [ ] `./uninstall.sh` removes the helper's files and stops it; the cover
+      works as a keyboard throughout.
+
 ## The lock screen (checkpoint 4)
 
 On the Surface Pro 4, `./install.sh` installs the clone unless given

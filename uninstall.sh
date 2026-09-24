@@ -25,6 +25,31 @@ path.write_text(''.join(line for line in lines if line.strip() not in {
 PY
 fi
 
+# The optional Type Cover fold helper (install.sh --with-fold-helper). The
+# udev rule goes first so nothing starts a new instance, then running
+# instances are stopped. A "change" event on the cover's node then clears
+# the rule's properties from the udev database.
+fold_rules=/etc/udev/rules.d/70-gimbal-sp4-cover.rules
+fold_unit=/etc/systemd/system/gimbal-sp4-coverd@.service
+fold_bin=/usr/local/lib/gimbal-sp4/gimbal-sp4-coverd
+if [[ -e $fold_rules || -e $fold_unit || -e $fold_bin ]]; then
+    echo 'Removing the Type Cover fold helper with sudo.'
+    if [[ -e $fold_rules ]]; then
+        sudo rm -f "$fold_rules"
+        sudo udevadm control --reload
+    fi
+    sudo systemctl stop 'gimbal-sp4-coverd@*.service'
+    sudo systemctl reset-failed 'gimbal-sp4-coverd@*.service' 2>/dev/null || true
+    sudo rm -f "$fold_unit" "$fold_bin"
+    sudo rmdir --ignore-fail-on-non-empty /usr/local/lib/gimbal-sp4 2>/dev/null || true
+    sudo systemctl daemon-reload
+    for node in /sys/class/hidraw/hidraw*; do
+        if grep -qx 'HID_ID=0003:0000045E:000007E8' "$node/device/uevent" 2>/dev/null; then
+            sudo udevadm trigger --action=change --settle "$node"
+        fi
+    done
+fi
+
 rm -f "$HOME/.config/hypr/gimbal_sp4.lua" \
       "$HOME/.local/bin/gimbal-sp4-oskbd" \
       "$HOME/.local/bin/gimbal-sp4-mode"
