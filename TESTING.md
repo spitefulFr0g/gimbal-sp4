@@ -159,6 +159,66 @@ then went away" are all useful.
 - [ ] If you have a Bluetooth keyboard: type on it while folded. The on-screen
       keyboard goes and stays away for text fields until you tap a knob.
 
+## Following the Type Cover
+
+Turn on **Follow the Type Cover** in the settings panel first. `gimbal-sp4-mode
+status` and `gimbal-sp4-mode cover` show what the Lua half decided.
+
+- [ ] Detach the cover: tablet mode within about three seconds.
+- [ ] Reattach it: laptop mode about a second after the cover enumerates.
+- [ ] With the cover attached, choose tablet mode with the bar icon. The panel
+      says a manual choice is holding; `hyprctl reload` and `omarchy restart
+      shell` keep it. Detaching, then reattaching, follows the cover again.
+- [ ] Suspend with the cover attached, resume: still laptop mode, no flicker
+      into tablet mode.
+- [ ] Suspend, detach, resume: tablet mode about five seconds after resume.
+      Suspend, reattach, resume: laptop mode.
+- [ ] Log out and back in with the cover detached, then attached. The mode
+      matches the cover.
+- [ ] Turn the setting off: detach and reattach change nothing.
+- [ ] Lock, detach the cover while locked: a tap on the password field still
+      opens the keypad.
+- [ ] The bar keyboard icon and `SUPER+B` work in both modes throughout.
+
+### Folding the cover back (fold helper)
+
+Install with `./install.sh --with-fold-helper` first. Offline checks, which
+need no hardware: `make -C coverd check`, `tests/coverd-sandbox.sh`, and
+`lua tests/cover_sim.lua`.
+
+- [ ] `systemctl status 'gimbal-sp4-coverd@*'` shows one instance, for the
+      cover's hidraw node, running as the dynamic user `gimbal-sp4-cover`.
+      `grep Seccomp /proc/<its main PID>/status` shows `Seccomp: 2`.
+      `gimbal-sp4-mode cover` says `fold helper: typing` with the cover flat.
+- [ ] `ls -l /dev/hidraw*`: the cover's node is still `root root` `crw-------`.
+- [ ] `journalctl -u 'gimbal-sp4-coverd@*'` shows only fold words and
+      start/stop lines. Type on the cover and use the touchpad: nothing new
+      is logged.
+- [ ] Fold the cover behind the screen: tablet mode within about three seconds.
+      Lift it off the keys for under two seconds and put it back: the mode
+      does not change. Unfold to typing: laptop.
+- [ ] With the cover flat, choose tablet mode with the bar icon; fold and
+      unfold: the mode follows the cover again (laptop after unfolding).
+- [ ] Folded, detach the cover: tablet mode stays, the cover shows
+      `detached`, and the helper instance stops. Reattach flat: laptop mode.
+      Detach, fold the cover back while detached, reattach: tablet mode
+      throughout, with no laptop flicker.
+- [ ] Folded, `hyprctl reload` and `omarchy restart shell`: still tablet.
+- [ ] Suspend flat, fold during suspend, resume: tablet mode. Suspend
+      folded, unfold during suspend, resume: laptop mode.
+- [ ] `sudo systemctl stop 'gimbal-sp4-coverd@*'`: `/run/gimbal-sp4-cover`
+      is gone and the mode stays as it was.
+- [ ] Turn **Follow the Type Cover** off: folding changes nothing, and the
+      settings panel still says which way the cover is.
+- [ ] `./uninstall.sh` removes the helper's files and stops it; the cover
+      works as a keyboard throughout. Afterwards these all come back empty
+      or inactive: `ls /etc/udev/rules.d/70-gimbal-sp4-cover.rules
+      /etc/systemd/system/gimbal-sp4-coverd@.service /usr/local/lib/gimbal-sp4
+      /run/gimbal-sp4-cover`, `systemctl list-units 'gimbal-sp4-coverd@*'`,
+      `udevadm info /dev/hidraw* | grep -i gimbal`, and
+      `ls "$XDG_RUNTIME_DIR" ~/.config/omarchy | grep gimbal-sp4` (only
+      `gimbal-sp4.json` remains, and not even that after `--purge`).
+
 ## The lock screen (checkpoint 4)
 
 On the Surface Pro 4, `./install.sh` installs the clone unless given

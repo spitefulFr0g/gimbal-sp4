@@ -1,0 +1,11 @@
+# Start the Gimbal SP4 fold helper for the Surface Pro 4 Type Cover's hidraw
+# node (USB 045e:07e8, interface 0) and stop it when the node goes away. The
+# node's owner and mode are not changed: it stays root-only.
+ACTION=="remove", GOTO="gimbal_sp4_cover_end"
+SUBSYSTEM!="hidraw", GOTO="gimbal_sp4_cover_end"
+KERNEL!="hidraw[0-9]*", GOTO="gimbal_sp4_cover_end"
+ENV{GIMBAL_SP4_COVER}=""
+SUBSYSTEMS=="usb", ATTRS{idVendor}=="045e", ATTRS{idProduct}=="07e8", ENV{GIMBAL_SP4_COVER}="1"
+ENV{GIMBAL_SP4_COVER}!="1", GOTO="gimbal_sp4_cover_end"
+SUBSYSTEMS=="usb", ATTRS{bInterfaceNumber}=="00", TAG+="systemd", ENV{SYSTEMD_WANTS}+="gimbal-sp4-coverd@%k.service"
+LABEL="gimbal_sp4_cover_end"

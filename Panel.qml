@@ -59,6 +59,7 @@ Item {
     readonly property string modePath: runtimeDir + "/gimbal-sp4-mode"
     readonly property string oskStatePath: runtimeDir + "/gimbal-sp4-osk"
     readonly property string autoShowPath: runtimeDir + "/gimbal-sp4-autoshow"
+    readonly property string autoCoverPath: runtimeDir + "/gimbal-sp4-autocover"
     readonly property string lookPath: runtimeDir + "/gimbal-sp4-look"
     readonly property string padPath: home + "/.local/state/omarchy/gimbal-sp4-pads.json"
     readonly property string userConfigPath: home + "/.config/omarchy/gimbal-sp4.json"
@@ -317,6 +318,37 @@ Item {
     }
 
     // -----------------------------------------------------------------------
+    // Following the Type Cover
+    //
+    // The Lua half sees the cover come and go and owns the mode; whether it
+    // may change the mode by itself is a setting, and settings live here. It
+    // reads this word on every poll, so the switch takes effect within half
+    // a second. Off by default until the cover's behaviour has been proven.
+    //
+    // Nothing is written until both settings files have been read. The Lua
+    // takes a change from `off` to `on` as the switch being turned on and
+    // applies the cover's mode at once, so a default `off` written in the
+    // moment before the files load would undo a manual choice on every
+    // shell start.
+    // -----------------------------------------------------------------------
+    property bool userConfigRead: false
+    property bool shellConfigRead: false
+    readonly property bool autoTypeCover: root.opt("autoTypeCover", false) === true
+    readonly property string autoCoverWord: !(root.userConfigRead && root.shellConfigRead) ? "" : root.autoTypeCover ? "on" : "off"
+
+    onAutoCoverWordChanged: {
+        if (root.autoCoverWord !== "")
+            autoCoverFile.setText(root.autoCoverWord);
+    }
+
+    FileView {
+        id: autoCoverFile
+
+        path: root.autoCoverPath
+        printErrors: false
+    }
+
+    // -----------------------------------------------------------------------
     // How the keyboard looks
     //
     // Half-transparent and floating over the windows by default: a solid board
@@ -564,8 +596,12 @@ Item {
             try {
                 root.userSettings = JSON.parse(text()) || ({});
             } catch (e) {}
+            root.userConfigRead = true;
         }
-        onLoadFailed: root.userSettings = ({})
+        onLoadFailed: {
+            root.userSettings = ({});
+            root.userConfigRead = true;
+        }
     }
 
     // Which of the two mechanisms is live: "edges", "pads" or "both".
@@ -637,7 +673,9 @@ Item {
                 }
             } catch (e) {}
             root.settings = found;
+            root.shellConfigRead = true;
         }
+        onLoadFailed: root.shellConfigRead = true
     }
 
     function actionFor(key) {

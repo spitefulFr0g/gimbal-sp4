@@ -1,14 +1,19 @@
 #!/usr/bin/env bash
 # Install the Surface Pro 4 keyboard, bar controls, and lock-screen keypad.
-# Pass --without-lock to leave Omarchy's lock screen untouched.
+# Pass --without-lock to leave Omarchy's lock screen untouched. Pass
+# --with-fold-helper to also install the system service that lets folding the
+# Type Cover back enter tablet mode; that part uses sudo (see README.md).
 set -euo pipefail
 
 install_lock=1
-case ${1:-} in
-    '') ;;
-    --without-lock) install_lock=0 ;;
-    *) echo 'Usage: install.sh [--without-lock]' >&2; exit 2 ;;
-esac
+install_fold=0
+for arg in "$@"; do
+    case $arg in
+        --without-lock) install_lock=0 ;;
+        --with-fold-helper) install_fold=1 ;;
+        *) echo 'Usage: install.sh [--without-lock] [--with-fold-helper]' >&2; exit 2 ;;
+    esac
+done
 
 plugin_id=io.github.spitfulfr0g.gimbal-sp4
 source_dir=$(cd "$(dirname "$0")" && pwd)
@@ -27,6 +32,11 @@ done
 for pkg in gtk4 gtk4-layer-shell libxkbcommon wayland pkgconf gcc; do
     pacman -Qq "$pkg" >/dev/null 2>&1 || { echo "Missing package: $pkg" >&2; exit 1; }
 done
+if (( install_fold )); then
+    for command_name in sudo systemctl udevadm make; do
+        command -v "$command_name" >/dev/null || { echo "Missing command: $command_name" >&2; exit 1; }
+    done
+fi
 
 # Gimbal owns the same keyboard shortcut. Keep a second installation from
 # silently changing the user's existing controls.
@@ -37,6 +47,10 @@ fi
 
 omarchy plugin validate "$source_dir"
 make -C "$source_dir/osk" --no-print-directory
+if (( install_fold )); then
+    # Build and test as the user; only the finished files are installed as root.
+    make -C "$source_dir/coverd" --no-print-directory check >/dev/null
+fi
 
 # Back up the only pre-existing config file changed by this installer.
 if ! rg -q 'require\("hypr.gimbal_sp4"\)' "$hypr_config"; then
@@ -118,9 +132,40 @@ if (( install_lock )); then
     rm -f "$patched_view"
 fi
 
+# The fold helper is the only part that runs with system privileges. Its
+# files are installed root-owned outside the home directory, so no user
+# process can change what runs; the service itself runs as an unprivileged
+# dynamic user (see coverd/system/gimbal-sp4-coverd@.service).
+fold_bin=/usr/local/lib/gimbal-sp4/gimbal-sp4-coverd
+fold_unit=/etc/systemd/system/gimbal-sp4-coverd@.service
+fold_rules=/etc/udev/rules.d/70-gimbal-sp4-cover.rules
+fold_message='Folding the Type Cover back is not detected; pass --with-fold-helper to add it.'
+if (( install_fold )); then
+    echo 'Installing the Type Cover fold helper with sudo:'
+    printf '  %s\n' "$fold_bin" "$fold_unit" "$fold_rules"
+    sudo install -d -o root -g root -m755 /usr/local/lib/gimbal-sp4
+    sudo install -o root -g root -m755 "$source_dir/coverd/gimbal-sp4-coverd" "$fold_bin"
+    sudo install -o root -g root -m644 "$source_dir/coverd/system/gimbal-sp4-coverd@.service" "$fold_unit"
+    sudo install -o root -g root -m644 "$source_dir/coverd/system/70-gimbal-sp4-cover.rules" "$fold_rules"
+    sudo systemctl daemon-reload
+    sudo udevadm control --reload
+    # Replay "add" for the cover's hidraw node only, so an attached cover
+    # starts the helper now; a running one is restarted onto the new binary.
+    sudo systemctl try-restart 'gimbal-sp4-coverd@*.service'
+    for node in /sys/class/hidraw/hidraw*; do
+        if grep -qx 'HID_ID=0003:0000045E:000007E8' "$node/device/uevent" 2>/dev/null; then
+            sudo udevadm trigger --action=add --settle "$node"
+        fi
+    done
+    fold_message='Folding the Type Cover back enters tablet mode when Follow the Type Cover is on; `gimbal-sp4-mode cover` shows the fold helper.'
+elif [[ -e $fold_bin || -e $fold_unit || -e $fold_rules ]]; then
+    fold_message='The installed Type Cover fold helper was left as it was; pass --with-fold-helper to update it.'
+fi
+
 # Qt caches loaded components, so the lock view only changes after a restart.
 omarchy restart shell >/dev/null
 
 echo 'Gimbal SP4 installed. Tap its keyboard icon in the bar to show or hide the keyboard.'
 echo 'The adjacent tablet icon switches manual tablet mode.'
 echo "$lock_message"
+echo "$fold_message"
