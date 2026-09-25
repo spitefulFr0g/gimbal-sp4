@@ -1,5 +1,6 @@
 import QtQuick
 import QtQuick.Shapes
+import QtQuick.Controls
 import Quickshell
 import Quickshell.Io
 import qs.Commons
@@ -360,413 +361,434 @@ Panel {
                 root.switchPanel(direction);
             }
 
-            Column {
-                id: column
+            onMoveRequested: function (dx, dy) {
+                if (dy !== 0)
+                    panelFlick.contentY = Math.max(0, Math.min(panelFlick.contentY + dy * Style.space(56), panelFlick.contentHeight - panelFlick.height));
+            }
 
-                anchors.left: parent.left
-                anchors.right: parent.right
-                anchors.top: parent.top
-                spacing: Style.space(12)
+            // The card stops at the screen's edge (fittedContentHeight) and the
+            // settings run past it, so they scroll: a finger drags them, a
+            // wheel or a trackpad rolls them, the arrow keys step them.
+            Flickable {
+                id: panelFlick
 
-                // ---------- Header ----------
-                Item {
-                    width: parent.width
-                    implicitHeight: Math.max(title.implicitHeight, stateLabel.implicitHeight)
+                anchors.fill: parent
+                contentWidth: width
+                contentHeight: column.implicitHeight
+                clip: true
+                boundsBehavior: Flickable.StopAtBounds
+                flickableDirection: Flickable.VerticalFlick
+                interactive: contentHeight > height
+                ScrollBar.vertical: ScrollBar {
+                    policy: ScrollBar.AsNeeded
+                }
 
-                    Text {
-                        id: title
+                Column {
+                    id: column
 
-                        anchors.left: parent.left
-                        anchors.verticalCenter: parent.verticalCenter
-                        text: "Gimbal SP4"
-                        color: root.foreground
-                        font.family: root.fontFamily
-                        font.pixelSize: Style.font.subtitle
+                    width: panelFlick.width
+                    spacing: Style.space(12)
+
+                    // ---------- Header ----------
+                    Item {
+                        width: parent.width
+                        implicitHeight: Math.max(title.implicitHeight, stateLabel.implicitHeight)
+
+                        Text {
+                            id: title
+
+                            anchors.left: parent.left
+                            anchors.verticalCenter: parent.verticalCenter
+                            text: "Gimbal SP4"
+                            color: root.foreground
+                            font.family: root.fontFamily
+                            font.pixelSize: Style.font.subtitle
+                        }
+
+                        Text {
+                            id: stateLabel
+
+                            anchors.right: parent.right
+                            anchors.verticalCenter: parent.verticalCenter
+                            text: root.folded ? "Tablet mode" : "Laptop mode"
+                            color: root.folded ? Color.accent : root.dim
+                            font.family: root.fontFamily
+                            font.pixelSize: Style.font.caption
+                        }
                     }
 
-                    Text {
-                        id: stateLabel
-
-                        anchors.right: parent.right
-                        anchors.verticalCenter: parent.verticalCenter
-                        text: root.folded ? "Tablet mode" : "Laptop mode"
-                        color: root.folded ? Color.accent : root.dim
-                        font.family: root.fontFamily
-                        font.pixelSize: Style.font.caption
+                    PanelSeparator {
+                        width: parent.width
+                        foreground: root.foreground
                     }
-                }
 
-                PanelSeparator {
-                    width: parent.width
-                    foreground: root.foreground
-                }
+                    // ---------- Interaction ----------
+                    PanelSectionHeader {
+                        text: "INTERACTION"
+                        foreground: root.foreground
+                        fontFamily: root.fontFamily
+                    }
 
-                // ---------- Interaction ----------
-                PanelSectionHeader {
-                    text: "INTERACTION"
-                    foreground: root.foreground
-                    fontFamily: root.fontFamily
-                }
+                    Row {
+                        width: parent.width
+                        spacing: Style.space(6)
 
-                Row {
-                    width: parent.width
-                    spacing: Style.space(6)
-
-                    // One box per knob, each its own switch: one thumb or
-                    // two, or neither. Colour carries the state rather than a
-                    // tick or a shade of grey -- at arm's length on a tablet
-                    // that is the difference you can read without looking
-                    // twice.
-                    Repeater {
-                        model: [
-                            {
-                                key: "padLeft",
-                                label: "Left knob"
-                            },
-                            {
-                                key: "padRight",
-                                label: "Right knob"
-                            }
-                        ]
-
-                        Rectangle {
-                            id: box
-
-                            required property var modelData
-                            readonly property bool on: root.onOff(box.modelData.key)
-
-                            width: (parent.width - Style.space(6)) / 2
-                            height: Style.space(34)
-                            radius: Style.cornerRadius
-                            color: box.on ? root.sage : root.offRed
-                            opacity: tap.pressed ? 0.75 : 1.0
-
-                            Behavior on color {
-                                ColorAnimation {
-                                    duration: 120
+                        // One box per knob, each its own switch: one thumb or
+                        // two, or neither. Colour carries the state rather than a
+                        // tick or a shade of grey -- at arm's length on a tablet
+                        // that is the difference you can read without looking
+                        // twice.
+                        Repeater {
+                            model: [
+                                {
+                                    key: "padLeft",
+                                    label: "Left knob"
+                                },
+                                {
+                                    key: "padRight",
+                                    label: "Right knob"
                                 }
-                            }
+                            ]
 
-                            Text {
-                                anchors.centerIn: parent
-                                width: parent.width - Style.space(8)
-                                horizontalAlignment: Text.AlignHCenter
-                                wrapMode: Text.WordWrap
-                                text: box.modelData.label
-                                color: "#1B1B1B"
-                                font.family: root.fontFamily
-                                font.pixelSize: Style.font.caption
-                            }
+                            Rectangle {
+                                id: box
 
-                            TapHandler {
-                                id: tap
+                                required property var modelData
+                                readonly property bool on: root.onOff(box.modelData.key)
 
-                                onTapped: root.setValue(box.modelData.key, !box.on)
+                                width: (parent.width - Style.space(6)) / 2
+                                height: Style.space(34)
+                                radius: Style.cornerRadius
+                                color: box.on ? root.sage : root.offRed
+                                opacity: tap.pressed ? 0.75 : 1.0
+
+                                Behavior on color {
+                                    ColorAnimation {
+                                        duration: 120
+                                    }
+                                }
+
+                                Text {
+                                    anchors.centerIn: parent
+                                    width: parent.width - Style.space(8)
+                                    horizontalAlignment: Text.AlignHCenter
+                                    wrapMode: Text.WordWrap
+                                    text: box.modelData.label
+                                    color: "#1B1B1B"
+                                    font.family: root.fontFamily
+                                    font.pixelSize: Style.font.caption
+                                }
+
+                                TapHandler {
+                                    id: tap
+
+                                    onTapped: root.setValue(box.modelData.key, !box.on)
+                                }
                             }
                         }
                     }
-                }
-
-                Text {
-                    width: parent.width
-                    wrapMode: Text.WordWrap
-                    text: "One tap shows and hides the keyboard, three taps unlock a knob for moving, and a press-and-drag fires the four gestures below."
-                    color: root.dim
-                    font.family: root.fontFamily
-                    font.pixelSize: Style.font.caption
-                }
-
-                PanelSeparator {
-                    width: parent.width
-                    foreground: root.foreground
-                }
-
-                // ---------- Keyboard ----------
-                PanelSectionHeader {
-                    text: "KEYBOARD"
-                    foreground: root.foreground
-                    fontFamily: root.fontFamily
-                }
-
-                Item {
-                    width: parent.width
-                    implicitHeight: autoShowLabel.implicitHeight
 
                     Text {
-                        id: autoShowLabel
-
-                        anchors.left: parent.left
-                        anchors.verticalCenter: parent.verticalCenter
-                        text: "Appear when a text field takes focus"
-                        color: root.foreground
-                        font.family: root.fontFamily
-                        font.pixelSize: Style.font.caption
-                    }
-
-                    ToggleSwitch {
-                        anchors.right: parent.right
-                        anchors.verticalCenter: autoShowLabel.verticalCenter
-                        trackHeight: Math.round(autoShowLabel.font.pixelSize * 1.2)
-                        cursorPad: Style.space(3)
-                        foreground: root.foreground
-                        checked: root.value("autoShow") === true
-                        onToggled: root.setValue("autoShow", !(root.value("autoShow") === true))
-                    }
-                }
-
-                Text {
-                    width: parent.width
-                    wrapMode: Text.WordWrap
-                    text: "Tapping a text field, or opening the Omarchy menu, brings the keyboard up, and it goes away when they do. A keyboard you summoned yourself stays until you put it away. Off, the knobs, the bar icon and SUPER+B are the only ways in."
-                    color: root.dim
-                    font.family: root.fontFamily
-                    font.pixelSize: Style.font.caption
-                }
-
-                // How solid the board is. Live: the daemon watches the word
-                // the slider writes, so the board changes under the thumb.
-                Item {
-                    width: parent.width
-                    implicitHeight: opacityLabel.implicitHeight
-
-                    Text {
-                        id: opacityLabel
-
-                        anchors.left: parent.left
-                        anchors.verticalCenter: parent.verticalCenter
-                        text: "Solid"
-                        color: root.foreground
-                        font.family: root.fontFamily
-                        font.pixelSize: Style.font.caption
-                    }
-
-                    Text {
-                        anchors.right: parent.right
-                        anchors.verticalCenter: parent.verticalCenter
-                        text: Math.round(Number(root.value("keyboardOpacity")) * 100) + " %"
+                        width: parent.width
+                        wrapMode: Text.WordWrap
+                        text: "One tap shows and hides the keyboard, three taps unlock a knob for moving, and a press-and-drag fires the four gestures below."
                         color: root.dim
                         font.family: root.fontFamily
                         font.pixelSize: Style.font.caption
                     }
-                }
 
-                PanelSlider {
-                    bar: root.bar
-                    width: parent.width
-                    minimum: 0.15
-                    maximum: 1
-                    step: 0.05
-                    value: Number(root.value("keyboardOpacity"))
-                    onMoved: function (v) {
-                        root.setValue("keyboardOpacity", Math.round(v * 20) / 20);
+                    PanelSeparator {
+                        width: parent.width
+                        foreground: root.foreground
                     }
-                }
 
-                // Where the board sits. Three boxes, one lit, like the knobs:
-                // a choice you make once, readable at arm's length.
-                Text {
-                    text: "Position"
-                    color: root.foreground
-                    font.family: root.fontFamily
-                    font.pixelSize: Style.font.caption
-                }
+                    // ---------- Keyboard ----------
+                    PanelSectionHeader {
+                        text: "KEYBOARD"
+                        foreground: root.foreground
+                        fontFamily: root.fontFamily
+                    }
 
-                Row {
-                    width: parent.width
-                    spacing: Style.space(6)
+                    Item {
+                        width: parent.width
+                        implicitHeight: autoShowLabel.implicitHeight
 
-                    Repeater {
-                        model: [
-                            {
-                                key: "top",
-                                label: "Top"
-                            },
-                            {
-                                key: "middle",
-                                label: "Middle"
-                            },
-                            {
-                                key: "bottom",
-                                label: "Bottom"
-                            }
-                        ]
+                        Text {
+                            id: autoShowLabel
 
-                        Rectangle {
-                            id: posBox
+                            anchors.left: parent.left
+                            anchors.verticalCenter: parent.verticalCenter
+                            text: "Appear when a text field takes focus"
+                            color: root.foreground
+                            font.family: root.fontFamily
+                            font.pixelSize: Style.font.caption
+                        }
 
-                            required property var modelData
-                            readonly property bool on: String(root.value("keyboardPosition")) === posBox.modelData.key
-
-                            width: (parent.width - Style.space(12)) / 3
-                            height: Style.space(30)
-                            radius: Style.cornerRadius
-                            color: posBox.on ? root.sage : Util.alpha(root.foreground, 0.12)
-                            opacity: posTap.pressed ? 0.75 : 1.0
-
-                            Behavior on color {
-                                ColorAnimation {
-                                    duration: 120
-                                }
-                            }
-
-                            Text {
-                                anchors.centerIn: parent
-                                text: posBox.modelData.label
-                                color: posBox.on ? "#1B1B1B" : root.foreground
-                                font.family: root.fontFamily
-                                font.pixelSize: Style.font.caption
-                            }
-
-                            TapHandler {
-                                id: posTap
-
-                                onTapped: root.setValue("keyboardPosition", posBox.modelData.key)
-                            }
+                        ToggleSwitch {
+                            anchors.right: parent.right
+                            anchors.verticalCenter: autoShowLabel.verticalCenter
+                            trackHeight: Math.round(autoShowLabel.font.pixelSize * 1.2)
+                            cursorPad: Style.space(3)
+                            foreground: root.foreground
+                            checked: root.value("autoShow") === true
+                            onToggled: root.setValue("autoShow", !(root.value("autoShow") === true))
                         }
                     }
-                }
-
-                Item {
-                    width: parent.width
-                    implicitHeight: reserveLabel.implicitHeight
 
                     Text {
-                        id: reserveLabel
-
-                        anchors.left: parent.left
-                        anchors.verticalCenter: parent.verticalCenter
-                        text: "Push windows up instead of covering them"
-                        color: root.foreground
+                        width: parent.width
+                        wrapMode: Text.WordWrap
+                        text: "Tapping a text field, or opening the Omarchy menu, brings the keyboard up, and it goes away when they do. A keyboard you summoned yourself stays until you put it away. Off, the knobs, the bar icon and SUPER+B are the only ways in."
+                        color: root.dim
                         font.family: root.fontFamily
                         font.pixelSize: Style.font.caption
                     }
 
-                    ToggleSwitch {
-                        anchors.right: parent.right
-                        anchors.verticalCenter: reserveLabel.verticalCenter
-                        trackHeight: Math.round(reserveLabel.font.pixelSize * 1.2)
-                        cursorPad: Style.space(3)
-                        foreground: root.foreground
-                        checked: root.value("keyboardReservesSpace") === true
-                        onToggled: root.setValue("keyboardReservesSpace", !(root.value("keyboardReservesSpace") === true))
-                    }
-                }
-
-                PanelSeparator {
-                    width: parent.width
-                    foreground: root.foreground
-                }
-
-                // ---------- Gestures ----------
-                PanelSectionHeader {
-                    text: "GESTURES"
-                    foreground: root.foreground
-                    fontFamily: root.fontFamily
-                }
-
-                Repeater {
-                    model: root.gestures
-
-                    delegate: Column {
-                        required property var modelData
-
-                        width: column.width
-                        spacing: Style.space(3)
+                    // How solid the board is. Live: the daemon watches the word
+                    // the slider writes, so the board changes under the thumb.
+                    Item {
+                        width: parent.width
+                        implicitHeight: opacityLabel.implicitHeight
 
                         Text {
-                            text: parent.modelData.label
+                            id: opacityLabel
+
+                            anchors.left: parent.left
+                            anchors.verticalCenter: parent.verticalCenter
+                            text: "Solid"
+                            color: root.foreground
+                            font.family: root.fontFamily
+                            font.pixelSize: Style.font.caption
+                        }
+
+                        Text {
+                            anchors.right: parent.right
+                            anchors.verticalCenter: parent.verticalCenter
+                            text: Math.round(Number(root.value("keyboardOpacity")) * 100) + " %"
                             color: root.dim
                             font.family: root.fontFamily
                             font.pixelSize: Style.font.caption
                         }
+                    }
 
-                        // Not a binding on `text`: a binding re-evaluates when any
-                        // setting changes and would throw away a command still being
-                        // typed. The field is filled once, refilled from the file only
-                        // while it is not being edited, and saved on every keystroke,
-                        // so nothing typed on a knob-summoned keyboard is ever lost to
-                        // a tap on another control.
-                        TextField {
-                            id: gestureField
-
-                            readonly property string key: parent.modelData.key
-
-                            width: parent.width
-                            placeholderText: String(root.fallback[gestureField.key])
-                            foreground: root.foreground
-                            font.family: root.fontFamily
-                            font.pixelSize: Style.font.caption
-
-                            Component.onCompleted: gestureField.text = String(root.value(gestureField.key))
-                            onTextEdited: root.setValue(gestureField.key, text)
-                            onEditingFinished: root.setValue(gestureField.key, text)
-
-                            Connections {
-                                target: root
-
-                                function onConfChanged() {
-                                    if (!gestureField.activeFocus)
-                                        gestureField.text = String(root.value(gestureField.key));
-                                }
-                            }
+                    PanelSlider {
+                        bar: root.bar
+                        width: parent.width
+                        minimum: 0.15
+                        maximum: 1
+                        step: 0.05
+                        value: Number(root.value("keyboardOpacity"))
+                        onMoved: function (v) {
+                            root.setValue("keyboardOpacity", Math.round(v * 20) / 20);
                         }
                     }
-                }
 
-                Text {
-                    width: parent.width
-                    wrapMode: Text.WordWrap
-                    text: "Any shell command. @keyboard is the one built-in: it shows and hides the on-screen keyboard."
-                    color: root.dim
-                    font.family: root.fontFamily
-                    font.pixelSize: Style.font.caption
-                }
-
-                PanelSeparator {
-                    width: parent.width
-                    foreground: root.foreground
-                }
-
-                // ---------- Gaming ----------
-                PanelSectionHeader {
-                    text: "GAMING"
-                    foreground: root.foreground
-                    fontFamily: root.fontFamily
-                }
-
-                Item {
-                    width: parent.width
-                    implicitHeight: moonlightLabel.implicitHeight
-
+                    // Where the board sits. Three boxes, one lit, like the knobs:
+                    // a choice you make once, readable at arm's length.
                     Text {
-                        id: moonlightLabel
-
-                        anchors.left: parent.left
-                        anchors.verticalCenter: parent.verticalCenter
-                        text: "Hold the keyboard back for Moonlight"
+                        text: "Position"
                         color: root.foreground
                         font.family: root.fontFamily
                         font.pixelSize: Style.font.caption
                     }
 
-                    ToggleSwitch {
-                        anchors.right: parent.right
-                        anchors.verticalCenter: moonlightLabel.verticalCenter
-                        trackHeight: Math.round(moonlightLabel.font.pixelSize * 1.2)
-                        cursorPad: Style.space(3)
-                        foreground: root.foreground
-                        checked: root.value("blockOnMoonlight") === true
-                        onToggled: root.setValue("blockOnMoonlight", !(root.value("blockOnMoonlight") === true))
-                    }
-                }
+                    Row {
+                        width: parent.width
+                        spacing: Style.space(6)
 
-                Text {
-                    width: parent.width
-                    wrapMode: Text.WordWrap
-                    text: "While a Moonlight window is open, nothing summons the keyboard -- not a swipe, not the button, not SUPER+B. The gestures still work."
-                    color: root.dim
-                    font.family: root.fontFamily
-                    font.pixelSize: Style.font.caption
+                        Repeater {
+                            model: [
+                                {
+                                    key: "top",
+                                    label: "Top"
+                                },
+                                {
+                                    key: "middle",
+                                    label: "Middle"
+                                },
+                                {
+                                    key: "bottom",
+                                    label: "Bottom"
+                                }
+                            ]
+
+                            Rectangle {
+                                id: posBox
+
+                                required property var modelData
+                                readonly property bool on: String(root.value("keyboardPosition")) === posBox.modelData.key
+
+                                width: (parent.width - Style.space(12)) / 3
+                                height: Style.space(30)
+                                radius: Style.cornerRadius
+                                color: posBox.on ? root.sage : Util.alpha(root.foreground, 0.12)
+                                opacity: posTap.pressed ? 0.75 : 1.0
+
+                                Behavior on color {
+                                    ColorAnimation {
+                                        duration: 120
+                                    }
+                                }
+
+                                Text {
+                                    anchors.centerIn: parent
+                                    text: posBox.modelData.label
+                                    color: posBox.on ? "#1B1B1B" : root.foreground
+                                    font.family: root.fontFamily
+                                    font.pixelSize: Style.font.caption
+                                }
+
+                                TapHandler {
+                                    id: posTap
+
+                                    onTapped: root.setValue("keyboardPosition", posBox.modelData.key)
+                                }
+                            }
+                        }
+                    }
+
+                    Item {
+                        width: parent.width
+                        implicitHeight: reserveLabel.implicitHeight
+
+                        Text {
+                            id: reserveLabel
+
+                            anchors.left: parent.left
+                            anchors.verticalCenter: parent.verticalCenter
+                            text: "Push windows up instead of covering them"
+                            color: root.foreground
+                            font.family: root.fontFamily
+                            font.pixelSize: Style.font.caption
+                        }
+
+                        ToggleSwitch {
+                            anchors.right: parent.right
+                            anchors.verticalCenter: reserveLabel.verticalCenter
+                            trackHeight: Math.round(reserveLabel.font.pixelSize * 1.2)
+                            cursorPad: Style.space(3)
+                            foreground: root.foreground
+                            checked: root.value("keyboardReservesSpace") === true
+                            onToggled: root.setValue("keyboardReservesSpace", !(root.value("keyboardReservesSpace") === true))
+                        }
+                    }
+
+                    PanelSeparator {
+                        width: parent.width
+                        foreground: root.foreground
+                    }
+
+                    // ---------- Gestures ----------
+                    PanelSectionHeader {
+                        text: "GESTURES"
+                        foreground: root.foreground
+                        fontFamily: root.fontFamily
+                    }
+
+                    Repeater {
+                        model: root.gestures
+
+                        delegate: Column {
+                            required property var modelData
+
+                            width: column.width
+                            spacing: Style.space(3)
+
+                            Text {
+                                text: parent.modelData.label
+                                color: root.dim
+                                font.family: root.fontFamily
+                                font.pixelSize: Style.font.caption
+                            }
+
+                            // Not a binding on `text`: a binding re-evaluates when any
+                            // setting changes and would throw away a command still being
+                            // typed. The field is filled once, refilled from the file only
+                            // while it is not being edited, and saved on every keystroke,
+                            // so nothing typed on a knob-summoned keyboard is ever lost to
+                            // a tap on another control.
+                            TextField {
+                                id: gestureField
+
+                                readonly property string key: parent.modelData.key
+
+                                width: parent.width
+                                placeholderText: String(root.fallback[gestureField.key])
+                                foreground: root.foreground
+                                font.family: root.fontFamily
+                                font.pixelSize: Style.font.caption
+
+                                Component.onCompleted: gestureField.text = String(root.value(gestureField.key))
+                                onTextEdited: root.setValue(gestureField.key, text)
+                                onEditingFinished: root.setValue(gestureField.key, text)
+
+                                Connections {
+                                    target: root
+
+                                    function onConfChanged() {
+                                        if (!gestureField.activeFocus)
+                                            gestureField.text = String(root.value(gestureField.key));
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    Text {
+                        width: parent.width
+                        wrapMode: Text.WordWrap
+                        text: "Any shell command. @keyboard is the one built-in: it shows and hides the on-screen keyboard."
+                        color: root.dim
+                        font.family: root.fontFamily
+                        font.pixelSize: Style.font.caption
+                    }
+
+                    PanelSeparator {
+                        width: parent.width
+                        foreground: root.foreground
+                    }
+
+                    // ---------- Gaming ----------
+                    PanelSectionHeader {
+                        text: "GAMING"
+                        foreground: root.foreground
+                        fontFamily: root.fontFamily
+                    }
+
+                    Item {
+                        width: parent.width
+                        implicitHeight: moonlightLabel.implicitHeight
+
+                        Text {
+                            id: moonlightLabel
+
+                            anchors.left: parent.left
+                            anchors.verticalCenter: parent.verticalCenter
+                            text: "Hold the keyboard back for Moonlight"
+                            color: root.foreground
+                            font.family: root.fontFamily
+                            font.pixelSize: Style.font.caption
+                        }
+
+                        ToggleSwitch {
+                            anchors.right: parent.right
+                            anchors.verticalCenter: moonlightLabel.verticalCenter
+                            trackHeight: Math.round(moonlightLabel.font.pixelSize * 1.2)
+                            cursorPad: Style.space(3)
+                            foreground: root.foreground
+                            checked: root.value("blockOnMoonlight") === true
+                            onToggled: root.setValue("blockOnMoonlight", !(root.value("blockOnMoonlight") === true))
+                        }
+                    }
+
+                    Text {
+                        width: parent.width
+                        wrapMode: Text.WordWrap
+                        text: "While a Moonlight window is open, nothing summons the keyboard -- not a swipe, not the button, not SUPER+B. The gestures still work."
+                        color: root.dim
+                        font.family: root.fontFamily
+                        font.pixelSize: Style.font.caption
+                    }
                 }
             }
         }
