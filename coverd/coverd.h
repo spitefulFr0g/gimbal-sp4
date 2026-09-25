@@ -33,7 +33,9 @@ enum coverd_fold {
     COVERD_FOLDED,
 };
 
-/* 0x22 typing, 0x33 part-way, 0x43 folded back; anything else is unknown. */
+/* 0x22 typing; 0x33 off the typing position, which is also where a cover
+ * folded back settles; 0x43 briefly while folding back; anything else is
+ * unknown. The mapping stays literal: the Lua decides what `between` means. */
 enum coverd_fold coverd_map(unsigned char position);
 
 /* Returns 1 and sets *fold when buf is report 35 with a position byte;

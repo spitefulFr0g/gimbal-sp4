@@ -164,7 +164,7 @@ then went away" are all useful.
 Turn on **Follow the Type Cover** in the settings panel first. `gimbal-sp4-mode
 status` and `gimbal-sp4-mode cover` show what the Lua half decided.
 
-- [ ] Detach the cover: tablet mode within about a second.
+- [ ] Detach the cover: tablet mode within about three seconds.
 - [ ] Reattach it: laptop mode about a second after the cover enumerates.
 - [ ] With the cover attached, choose tablet mode with the bar icon. The panel
       says a manual choice is holding; `hyprctl reload` and `omarchy restart
@@ -194,8 +194,9 @@ need no hardware: `make -C coverd check`, `tests/coverd-sandbox.sh`, and
 - [ ] `journalctl -u 'gimbal-sp4-coverd@*'` shows only fold words and
       start/stop lines. Type on the cover and use the touchpad: nothing new
       is logged.
-- [ ] Fold the cover behind the screen: tablet mode within about a second.
-      Hold it part-way: the mode does not change. Unfold to typing: laptop.
+- [ ] Fold the cover behind the screen: tablet mode within about three seconds.
+      Lift it off the keys for under two seconds and put it back: the mode
+      does not change. Unfold to typing: laptop.
 - [ ] With the cover flat, choose tablet mode with the bar icon; fold and
       unfold: the mode follows the cover again (laptop after unfolding).
 - [ ] Folded, detach the cover: tablet mode stays, the cover shows

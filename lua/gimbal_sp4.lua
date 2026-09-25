@@ -90,8 +90,11 @@ if not read_word(autoshow_path) then write_word(autoshow_path, "off") end
 -- so the optional fold helper (coverd/, a hardened system service) reads it
 -- and publishes one word to FOLD_PATH: typing, between, folded or unknown.
 -- While the cover is present, `folded` counts as folded and `typing` as
--- attached; `between`, `unknown` or no word keeps the last settled present
--- reading. With nothing settled since load or reattach, the helper gets
+-- attached. Folded back, this SP4's cover reports `between` (0x33) once it
+-- is still; `folded` (0x43) lasts only a few seconds. So `between` held for
+-- BETWEEN_HOLD seconds also counts as folded, while a shorter one (the
+-- cover on its way round) keeps the last settled reading, as do `unknown`
+-- and no word. With nothing settled since load or reattach, the helper gets
 -- COVER_GRACE seconds to publish before the cover counts as attached, so a
 -- cover reattached folded, or a reload while the helper restarts, does not
 -- pass through laptop mode. If the helper is not installed its file is not
@@ -100,6 +103,7 @@ if not read_word(autoshow_path) then write_word(autoshow_path, "off") end
 local COVER_POLL_MS = 500
 local COVER_SETTLE = 2   -- consecutive agreeing reads
 local COVER_GRACE = 5    -- seconds
+local BETWEEN_HOLD = 2   -- seconds
 local FOLD_PATH = "/run/gimbal-sp4-cover/fold"
 local FOLD_WORDS = { typing = true, between = true, folded = true, unknown = true }
 local HELPER_UNIT = "/etc/systemd/system/gimbal-sp4-coverd@.service"
@@ -114,6 +118,7 @@ local function helper_installed()
     return true
 end
 local present_since = nil
+local between_since = nil
 local candidate, candidate_reads = nil, 0
 local last_poll = os.time()
 local grace_until = last_poll + COVER_GRACE
@@ -142,6 +147,12 @@ local function read_cover(now)
     if not helper_installed() then return "attached" end
     present_since = present_since or now
     local fold = read_fold()
+    if fold ~= "between" then
+        between_since = nil
+    else
+        between_since = between_since or now
+        if now >= between_since + BETWEEN_HOLD then return "folded" end
+    end
     if fold == "folded" then return "folded" end
     if fold == "typing" then return "attached" end
     if M.cover == "folded" or M.cover == "attached" then return M.cover end
