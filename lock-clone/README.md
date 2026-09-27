@@ -1,7 +1,7 @@
 # The lock screen keypad
 
 A clone of Omarchy's own lock screen (`omarchy.lock`) with one addition: a
-keypad drawn by the lock screen itself. On the Surface Pro 4 it opens with the
+keypad drawn by the lock screen itself. On the Surface it opens with the
 lock screen in tablet mode, and a finger or pen tap on the password field opens
 it in either mode. Tablet mode is a manual choice that cannot be changed while
 locked, so a Surface locked in laptop mode and then undocked still has a way

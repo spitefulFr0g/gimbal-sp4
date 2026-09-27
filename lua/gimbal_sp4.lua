@@ -1,4 +1,4 @@
--- Manual tablet mode for Surface Pro 4. The Omarchy shell, keyboard daemon,
+-- Manual tablet mode for Surface Pro 4 and 9. The Omarchy shell, keyboard daemon,
 -- and later lock view consume only the runtime mode word; hardware detection
 -- can be added here without changing those readers.
 local M = {}
@@ -51,7 +51,7 @@ function M.status()
     return M.tablet and "tablet" or "laptop"
 end
 
--- The first install defaults to tablet mode so an SP4 without its Type Cover
+-- The first install defaults to tablet mode so a Surface without its Type Cover
 -- immediately has touch access. Later reloads use the user's saved choice.
 M.tablet = read_word(saved_path) ~= "laptop"
 write_word(mode_path, M.status())

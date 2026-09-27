@@ -51,3 +51,13 @@ The [linux-surface feature matrix](https://github.com/linux-surface/linux-surfac
 The key architectural limit is the secure session lock: ordinary keyboard layer surfaces are hidden and cannot receive touch while locked. The keypad must be drawn inside the lock surface, as [Gimbal explains](https://github.com/mechanicsunlocked/gimbal/blob/master/lock-clone/README.md#why-it-cannot-ship-in-the-plugin) and as the [Omarchy Surface Pro lock request](https://github.com/omacom/omarchy/discussions/9600) describes. Neither solution addresses the earlier boot-time disk-unlock prompt; Gimbal documents that separately in [LUKS.md](https://github.com/mechanicsunlocked/gimbal/blob/master/LUKS.md).
 
 **Recommendation:** reuse Gimbal's keyboard, bar UI, and lock-keypad design only after separating them from the Framework fold signal. For the SP4, make the bar button available without automatic tablet detection first, validate touch typing and focus, then adapt the lock clone with a Surface/manual mode signal and test an actual lock while a physical keyboard remains available. Avoid installing Gimbal's Framework boot fix. If a separate PIN is desired later, evaluate `omarchy-surface-touch`'s PAM change as a distinct security decision.
+
+## Surface Pro 9 notes (measured 2026-09-26)
+
+Read-only checks on an Intel SP9 (`Surface_Pro_9_2038`, i5-1235U, x86_64) running the stock `7.2.5-3-omarchy` kernel:
+
+- Display `eDP-1` is 2880×1920 at scale 2. It has the same 3:2 ratio as the SP4, so the keyboard geometry needs no change.
+- There is no touchscreen input device (`ID_INPUT_TOUCHSCREEN` is absent). SP9 touch and pen go through ITHC, which is only in the linux-surface kernel. The kernel is therefore required.
+- The Surface Aggregator modules load on the stock kernel. `surface_aggregator_tabletsw` provides a `Microsoft Surface POS Tablet Mode Switch` input device, which is a real `SW_TABLET_MODE` source the SP4 lacked. That makes automatic tablet mode a practical future adapter for the SP9 (see PLAN milestone 1). Manual mode keeps working without it.
+- IIO sensors: `accel_3d`, `gyro_3d`, `magn_3d`, `incli_3d`, `als`, `dev_rotation`, `gravity`. The axis mapping for rotation has not been measured.
+- Wi-Fi is Intel CNVi (`8086:51f0`), so `linux-firmware-marvell` is not needed.

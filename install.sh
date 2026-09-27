@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Install the Surface Pro 4 keyboard, bar controls, and lock-screen keypad.
+# Install the Surface Pro 4/9 keyboard, bar controls, and lock-screen keypad.
 # Pass --without-lock to leave Omarchy's lock screen untouched.
 set -euo pipefail
 
@@ -15,9 +15,16 @@ source_dir=$(cd "$(dirname "$0")" && pwd)
 plugin_dir="$HOME/.config/omarchy/plugins/$plugin_id"
 hypr_config="$HOME/.config/hypr/hyprland.lua"
 
-[[ $(cat /sys/class/dmi/id/product_name 2>/dev/null) == 'Surface Pro 4' ]] || {
-    echo 'This installer targets Surface Pro 4 only.' >&2; exit 1;
-}
+product=$(cat /sys/class/dmi/id/product_name 2>/dev/null || true)
+case $product in
+    'Surface Pro 4'|'Surface Pro 9') ;;
+    *) echo "This installer targets Surface Pro 4 and 9, not '${product:-unknown}'." >&2; exit 1 ;;
+esac
+# Surface touchscreens need the linux-surface kernel (IPTS on the SP4, ITHC on
+# the SP9). Without it the keyboard installs but cannot be reached by finger.
+if ! udevadm info --export-db 2>/dev/null | grep -q '^E: ID_INPUT_TOUCHSCREEN=1'; then
+    echo "Warning: no touchscreen found. Is the linux-surface kernel running? (uname -r: $(uname -r))" >&2
+fi
 command -v omarchy-shell >/dev/null || { echo 'Omarchy 4 shell is required.' >&2; exit 1; }
 command -v hyprctl >/dev/null || { echo 'Hyprland is required.' >&2; exit 1; }
 for command_name in jq rg python3 patch; do

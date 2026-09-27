@@ -161,7 +161,7 @@ then went away" are all useful.
 
 ## The lock screen (checkpoint 4)
 
-On the Surface Pro 4, `./install.sh` installs the clone unless given
+On the Surface, `./install.sh` installs the clone unless given
 `--without-lock` (see `lock-clone/README.md`). The clone is the stock lock
 screen plus a keypad. Keep the Type Cover attached until every item below
 has passed once.

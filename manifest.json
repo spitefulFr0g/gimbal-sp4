@@ -4,7 +4,7 @@
   "name": "Gimbal SP4",
   "version": "0.1.0",
   "author": "Sven Mathieu and Gimbal SP4 contributors",
-  "description": "Touch keyboard and manual tablet mode for Surface Pro 4 on Omarchy 4.",
+  "description": "Touch keyboard and manual tablet mode for Surface Pro 4 and 9 on Omarchy 4.",
   "kinds": [
     "panel",
     "bar-widget"

@@ -1,6 +1,6 @@
 # Gimbal SP4
 
-A Surface Pro 4 adaptation of [Gimbal](https://github.com/mechanicsunlocked/gimbal) for Omarchy 4. The fork keeps Gimbal's GTK4 Wayland keyboard, Quickshell bar widget, and settings panel. It replaces Framework 12 fold detection with a manual Surface tablet mode. The keyboard icon remains available in both modes.
+A Surface Pro 4 and Surface Pro 9 (Intel) adaptation of [Gimbal](https://github.com/mechanicsunlocked/gimbal) for Omarchy 4. The fork keeps Gimbal's GTK4 Wayland keyboard, Quickshell bar widget, and settings panel. It replaces Framework 12 fold detection with a manual Surface tablet mode. The keyboard icon remains available in both modes.
 
 This fork is based on upstream commit `97aa6d44e4949f820cb905673612c11d161aad21`. The original author is Sven Mathieu; see [LICENSE](LICENSE) and [the upstream README](UPSTREAM_README.md). The installer also clones Omarchy's lock screen to add a touch keypad.
 
@@ -15,7 +15,32 @@ This fork is based on upstream commit `97aa6d44e4949f820cb905673612c11d161aad21`
 
 This version does not yet detect Type Cover detach, rotate the display, or provide a draggable floating keyboard. The [project plan](PLAN.md) covers those later milestones. No PIN or PAM changes are made. The lock keypad has passed a preview check but still needs a real lock and unlock by touch. Real finger input still needs a check on the tablet; automated verification has confirmed the keyboard sends keys into a focused Foot terminal.
 
-## Install on a Surface Pro 4
+## Surface kernel prerequisite
+
+Both supported Surfaces need the [linux-surface](https://github.com/linux-surface/linux-surface) kernel for the touchscreen: the SP4 uses IPTS and the SP9 uses the Intel Touch Host Controller (ITHC). Neither is in the stock Arch or `linux-omarchy` kernel. Without it the installer warns that no touchscreen was found. On Omarchy (Arch, Limine):
+
+```bash
+curl -s https://raw.githubusercontent.com/linux-surface/linux-surface/master/pkg/keys/surface.asc \
+  | sudo pacman-key --add -
+sudo pacman-key --finger 56C464BAAC421453
+sudo pacman-key --lsign-key 56C464BAAC421453
+printf '\n[linux-surface]\nServer = https://pkg.surfacelinux.com/arch/\n' | sudo tee -a /etc/pacman.conf
+sudo pacman -Syu linux-surface linux-surface-headers iptsd
+# SP4 only: its Wi-Fi is Marvell. The SP9 uses Intel Wi-Fi from linux-firmware.
+# sudo pacman -S linux-firmware-marvell
+# /etc/default/limine overrides the limine-entry-tool.d drop-ins, so set the order there.
+sudo sed -i 's/^BOOT_ORDER="linux-omarchy,/BOOT_ORDER="linux-surface, linux-omarchy,/' /etc/default/limine
+sudo limine-update
+sudo grep -nE 'default_entry|remember_last_entry|^ */' /boot/limine.conf
+```
+
+The first kernel listed under `/+Omarchy` is the default (`default_entry: 2`).
+
+Reboot. `uname -r` should end in `-surface`, and `systemctl status 'iptsd@*'` should show the touch daemon running. `linux-omarchy` stays as a fallback boot entry.
+
+The Surface Pro 9 5G (ARM, SQ3) is not supported: linux-surface does not cover it and this project builds for x86_64.
+
+## Install on a Surface Pro 4 or 9
 
 Read `install.sh` before running it. It builds the keyboard, adds one `require` line to `~/.config/hypr/hyprland.lua` after making a timestamped backup, installs the shell plugin under its own ID, and enables its bar widget. It clones Omarchy's menu and other unlocked-session text popups to allow touch typing into them. It backs up `shell.json` before cloning. It clones Omarchy's lock plugin as `<user>.lock` and applies `lock-clone/LockView.patch` to a fresh copy of the installed stock `LockView.qml` on each run. If Omarchy's file has changed and the patch no longer applies exactly, it installs no lock keypad, removes any previous one, and leaves the stock lock screen active. Pass `--without-lock` to skip the lock screen entirely. It does not run the original Framework installer.
 
