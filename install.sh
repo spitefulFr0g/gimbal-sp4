@@ -156,7 +156,12 @@ fold_bin=/usr/local/lib/gimbal-sp4/gimbal-sp4-coverd
 fold_unit=/etc/systemd/system/gimbal-sp4-coverd@.service
 fold_rules=/etc/udev/rules.d/70-gimbal-sp4-cover.rules
 fold_message='Folding the Type Cover back is not detected; pass --with-fold-helper to add it.'
-if (( install_fold )); then
+if [[ $product != 'Surface Pro 4' ]]; then
+    # Only the SP4 cover needs the helper; newer Surfaces report the fold
+    # through their tablet-mode switch, which the Lua half reads directly.
+    fold_message="The $product's tablet-mode switch reports folding the Type Cover back; no fold helper is needed."
+    if (( install_fold )); then fold_message+=' --with-fold-helper was ignored.'; fi
+elif (( install_fold )); then
     echo 'Installing the Type Cover fold helper with sudo:'
     printf '  %s\n' "$fold_bin" "$fold_unit" "$fold_rules"
     sudo install -d -o root -g root -m755 /usr/local/lib/gimbal-sp4

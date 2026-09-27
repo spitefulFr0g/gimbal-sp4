@@ -68,6 +68,9 @@ Panel {
     readonly property string coverPath: runtimeDir + "/gimbal-sp4-cover"
     // Written by the optional fold helper (coverd/), a system service.
     readonly property string foldPath: "/run/gimbal-sp4-cover/fold"
+    // Written by the Lua half: `present` on a Surface whose tablet-mode
+    // switch reports the cover's posture (the SP9), `absent` otherwise.
+    readonly property string coverSwitchPath: runtimeDir + "/gimbal-sp4-cover-switch"
 
     // The bar host sizes a slot around whatever the widget asks for, so two
     // buttons need a stated width; a single one could get away with filling
@@ -91,6 +94,8 @@ Panel {
     // Whether the fold helper is running, so the settings text only talks
     // about folding when folding can be seen.
     property bool foldHelper: false
+    property bool coverSwitch: false
+    readonly property bool foldSeen: foldHelper || coverSwitch
 
     property var conf: ({})
 
@@ -209,6 +214,16 @@ Panel {
         onLoadFailed: root.foldHelper = false
     }
 
+    FileView {
+        path: root.coverSwitchPath
+        watchChanges: true
+        printErrors: false
+
+        onFileChanged: reload()
+        onLoaded: root.coverSwitch = text().substring(0, 16).trim() === "present"
+        onLoadFailed: root.coverSwitch = false
+    }
+
     // What the settings panel says under the Type Cover switch: which way
     // the cover is and, when the mode disagrees with it, that a choice made
     // by hand is holding.
@@ -224,7 +239,7 @@ Panel {
         var expected = cover === "attached" ? "laptop" : "tablet";
         if (mode === expected)
             return "The Type Cover is " + shown + ", so " + mode + " mode.";
-        var until = cover === "detached" ? "reattached" : cover === "folded" ? "unfolded or detached" : root.foldHelper ? "detached or folded back" : "detached";
+        var until = cover === "detached" ? "reattached" : cover === "folded" ? "unfolded or detached" : root.foldSeen ? "detached or folded back" : "detached";
         return "The Type Cover is " + shown + ", but " + mode + " mode was chosen by hand. It holds until the cover is " + until + ".";
     }
 
@@ -522,7 +537,7 @@ Panel {
                     Text {
                         width: parent.width
                         wrapMode: Text.WordWrap
-                        text: (root.foldHelper ? "Detaching the cover or folding it behind the screen enters tablet mode; reattaching or unfolding it returns to laptop mode. " : "Detaching the cover enters tablet mode and reattaching it returns to laptop mode. ") + root.coverNote
+                        text: (root.foldSeen ? "Detaching the cover or folding it behind the screen enters tablet mode; reattaching or unfolding it returns to laptop mode. " : "Detaching the cover enters tablet mode and reattaching it returns to laptop mode. ") + root.coverNote
                         color: root.dim
                         font.family: root.fontFamily
                         font.pixelSize: Style.font.caption

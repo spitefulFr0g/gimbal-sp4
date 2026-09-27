@@ -180,7 +180,23 @@ status` and `gimbal-sp4-mode cover` show what the Lua half decided.
       opens the keypad.
 - [ ] The bar keyboard icon and `SUPER+B` work in both modes throughout.
 
-### Folding the cover back (fold helper)
+### Surface Pro 9: the tablet-mode switch
+
+No helper is involved. `gimbal-sp4-mode cover` shows the cover state and
+`tablet-mode switch: laptop` with the cover in the typing position.
+
+- [ ] Detach the cover: tablet mode within about two seconds, cover `detached`.
+      Reattach: laptop mode.
+- [ ] Fold the cover behind the screen: tablet mode, cover `folded`, switch
+      `folded-back`. Unfold: laptop mode.
+- [ ] Fold the cover up against the screen at an angle (canvas): tablet mode.
+- [ ] Close the cover over the screen and open it again: laptop mode, no
+      tablet flicker.
+- [ ] With the setting on, the panel's text mentions folding the cover behind
+      the screen.
+- [ ] Suspend in laptop position and resume: no flicker into tablet mode.
+
+### Folding the cover back (SP4 fold helper)
 
 Install with `./install.sh --with-fold-helper` first. Offline checks, which
 need no hardware: `make -C coverd check`, `tests/coverd-sandbox.sh`, and

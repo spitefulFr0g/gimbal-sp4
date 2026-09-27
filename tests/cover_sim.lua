@@ -18,6 +18,20 @@ local clock = 1000
 local devices = "attached" -- "attached", "detached" or "unreadable"
 local fold = nil           -- nil: no helper file; otherwise its contents
 local helper = true        -- whether the helper's unit file is installed
+local posture = nil        -- nil: no tablet-mode switch (SP4); else its state
+local SP9_DEVICES = table.concat({
+    'I: Bus=0000 Vendor=045e Product=0000 Version=0000',
+    'N: Name="Microsoft Surface POS Tablet Mode Switch"',
+    'P: Phys=ssam/01:26:01:00:01/input0',
+    'S: Sysfs=/devices/platform/MSHW0343:00/01:26:01:00:01/input/input21',
+    'B: SW=2',
+    '',
+    'I: Bus=0003 Vendor=045e Product=09b0 Version=0111',
+    'N: Name="Microsoft Surface 045E:09B0 Keyboard"',
+    'S: Sysfs=/devices/pci0000:00/0000:00:14.0/usb1/1-3/input/input24',
+    '',
+}, "\n")
+local SWITCH_STATE = "/sys/devices/platform/MSHW0343:00/01:26:01:00:01/state"
 local timers = {}
 local failures, checks = 0, 0
 
@@ -25,6 +39,7 @@ local function file(body)
     return {
         read = function(_, n)
             if type(n) == "number" then return body:sub(1, n) end
+            if n == "*l" or n == "l" then return body:match("^[^\n]*") end
             return body
         end,
         close = function() end,
@@ -48,6 +63,7 @@ local function load_module()
     io.open = function(p, m)
         if p == "/proc/bus/input/devices" then
             if devices == "unreadable" then return nil end
+            if posture ~= nil then return file(SP9_DEVICES) end
             return file(devices == "attached"
                 and 'N: Name="Microsoft Surface Type Cover Keyboard"\n'
                 or 'N: Name="Lid Switch"\n')
@@ -55,6 +71,10 @@ local function load_module()
         if p == "/run/gimbal-sp4-cover/fold" then
             if fold == nil then return nil end
             return file(fold .. "\n")
+        end
+        if p == SWITCH_STATE then
+            if posture == nil or posture == "unreadable" then return nil end
+            return file(posture .. "\n")
         end
         if p == "/etc/systemd/system/gimbal-sp4-coverd@.service" then
             return helper and file("") or nil
@@ -101,7 +121,7 @@ end
 
 local function fresh(installed)
     assert(os.execute("rm -f '" .. dir .. "'/rt/* '" .. dir .. "'/home/.config/omarchy/*"))
-    clock, devices, fold = 1000, "attached", nil
+    clock, devices, fold, posture = 1000, "attached", nil, nil
     helper = installed ~= false
     wr("/home/.config/omarchy/gimbal-sp4-mode", "laptop")
     local M = load_module()
@@ -272,6 +292,45 @@ fold = "folded\nfolded"; run(3)
 expect("two lines are ignored", "laptop", "attached")
 fold = "folded"; run(1)
 expect("then a real fold still works", "tablet", "folded")
+
+-- 10. A Surface with a tablet-mode switch (SP9): its posture decides, and
+-- the keyboard name and the fold helper are not consulted.
+M = fresh(false)
+expect("SP4 list: no switch published", "laptop", "attached")
+checks = checks + 1
+if rd("/rt/gimbal-sp4-cover-switch") ~= "absent" then
+    failures = failures + 1; print("FAIL SP4 list publishes cover-switch absent")
+end
+posture = "laptop"; run(1.5)
+expect("switch laptop: attached though no Type Cover name", "laptop", "attached")
+checks = checks + 1
+if rd("/rt/gimbal-sp4-cover-switch") ~= "present" then
+    failures = failures + 1; print("FAIL switch publishes cover-switch present")
+end
+posture = "folded-back"; run(1.5)
+expect("switch folded-back -> tablet", "tablet", "folded")
+posture = "laptop"; run(1.5)
+expect("switch laptop again -> laptop", "laptop", "attached")
+posture = "disconnected"; run(1.5)
+expect("switch disconnected -> tablet", "tablet", "detached")
+posture = "laptop"; run(1.5)
+posture = "folded-canvas"; run(1.5)
+expect("switch folded-canvas -> tablet", "tablet", "folded")
+posture = "closed"; run(1.5)
+expect("switch closed counts as attached", "laptop", "attached")
+posture = "unreadable"; run(5)
+expect("unreadable state changes nothing", "laptop", "attached")
+posture = "sideways"; run(5)
+expect("unknown posture changes nothing", "laptop", "attached")
+posture = "laptop"; helper = true; fold = "folded"; run(3)
+expect("switch present: fold helper word is ignored", "laptop", "attached")
+helper, fold = false, nil
+suspend(60); posture = "disconnected"; run(2.5); posture = "laptop"; run(2)
+expect("switch: resume with 2.5 s disconnect, no flip", "laptop", "attached")
+M.set("tablet"); run(3)
+expect("switch: manual tablet holds while laptop", "tablet", "attached")
+posture = "folded-back"; run(1.5); posture = "laptop"; run(1.5)
+expect("switch: fold and unfold follows cover again", "laptop", "attached")
 
 io.open, os.time, os.getenv = real_open, real_time, real_getenv
 os.execute("rm -rf '" .. dir .. "'")

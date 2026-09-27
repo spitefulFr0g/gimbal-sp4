@@ -49,7 +49,7 @@ omarchy restart shell >/dev/null
 
 # Nothing that writes these is loaded any more. The saved mode and the cover
 # state it was chosen under are state, not settings.
-rm -f "$runtime"/gimbal-sp4-{mode,osk,autoshow,autocover,cover,look} \
+rm -f "$runtime"/gimbal-sp4-{mode,osk,autoshow,autocover,cover,cover-switch,look} \
       "$HOME/.config/omarchy/gimbal-sp4-mode" \
       "$HOME/.config/omarchy/gimbal-sp4-cover"
 if (( purge )); then

@@ -99,6 +99,14 @@ if not read_word(autoshow_path) then write_word(autoshow_path, "off") end
 -- cover reattached folded, or a reload while the helper restarts, does not
 -- pass through laptop mode. If the helper is not installed its file is not
 -- read at all, and this is exactly detach-only detection.
+--
+-- Newer Surfaces (the SP9, measured) have what the SP4 lacks: the Surface
+-- Aggregator's tablet-mode switch, "Microsoft Surface POS Tablet Mode
+-- Switch", whose kernel driver names the cover's posture in a world-readable
+-- sysfs `state` file. Its keyboard is not named "Type Cover", so when the
+-- switch is listed it alone decides, and the name and the fold helper are
+-- not consulted. Its path comes from the same device list, so it follows
+-- the device if it is re-created.
 -- ---------------------------------------------------------------------------
 local COVER_POLL_MS = 500
 local COVER_SETTLE = 2   -- consecutive agreeing reads
@@ -107,6 +115,17 @@ local BETWEEN_HOLD = 2   -- seconds
 local FOLD_PATH = "/run/gimbal-sp4-cover/fold"
 local FOLD_WORDS = { typing = true, between = true, folded = true, unknown = true }
 local HELPER_UNIT = "/etc/systemd/system/gimbal-sp4-coverd@.service"
+local switch_path = runtime .. "/gimbal-sp4-cover-switch"
+-- The driver's posture words (surface_aggregator_tabletsw). "closed" is the
+-- cover shut over the screen, which the driver does not count as tablet
+-- mode either. Any other word is unknown and leaves the mode alone.
+local SWITCH_COVER = {
+    laptop = "attached", closed = "attached",
+    disconnected = "detached",
+    ["folded-canvas"] = "folded", ["folded-back"] = "folded",
+    book = "folded", slate = "folded", tablet = "folded",
+}
+local switch_seen = nil
 
 -- Checked on every poll rather than once at load: install.sh reloads
 -- Hyprland before it installs the helper, and the helper can be added or
@@ -134,12 +153,38 @@ local function read_fold()
     return FOLD_WORDS[word] and word or nil
 end
 
+-- The switch's sysfs `state` file, found through its entry in the device
+-- list, or nil when there is no such switch.
+local function switch_state_path(text)
+    if not text:find("Tablet Mode Switch", 1, true) then return nil end
+    for block in (text .. "\n\n"):gmatch("(.-)\n\n") do
+        if block:find('N: Name="[^"\n]*Surface[^"\n]*Tablet Mode Switch"') then
+            local sysfs = block:match("\nS: Sysfs=(/[^\n]+)")
+            if sysfs then return "/sys" .. sysfs:gsub("/input/input%d+$", "") .. "/state" end
+        end
+    end
+    return nil
+end
+
+-- Tells the settings panel whether folding can be seen without the helper.
+local function publish_switch(present)
+    if present == switch_seen then return end
+    switch_seen = present
+    write_word(switch_path, present and "present" or "absent")
+end
+
 local function read_cover(now)
     local file = io.open("/proc/bus/input/devices", "r")
     if not file then return nil end
     local text = file:read("*a")
     file:close()
     if not text or text == "" then return nil end
+    local state_path = switch_state_path(text)
+    publish_switch(state_path ~= nil)
+    if state_path then
+        present_since = nil
+        return SWITCH_COVER[read_word(state_path)]
+    end
     if not text:find('Name="[^"\n]*Surface Type Cover Keyboard"') then
         present_since = nil
         return "detached"
