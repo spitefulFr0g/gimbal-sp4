@@ -3,15 +3,19 @@
 # Pass --without-lock to leave Omarchy's lock screen untouched. Pass
 # --with-fold-helper to also install the system service that lets folding the
 # Type Cover back enter tablet mode; that part uses sudo (see README.md).
+# Pass --with-unlock-keyboard to let a Surface Pro 9 Type Cover type at the
+# disk-unlock prompt; that part also uses sudo and rebuilds the initramfs.
 set -euo pipefail
 
 install_lock=1
 install_fold=0
+install_unlock=0
 for arg in "$@"; do
     case $arg in
         --without-lock) install_lock=0 ;;
         --with-fold-helper) install_fold=1 ;;
-        *) echo 'Usage: install.sh [--without-lock] [--with-fold-helper]' >&2; exit 2 ;;
+        --with-unlock-keyboard) install_unlock=1 ;;
+        *) echo 'Usage: install.sh [--without-lock] [--with-fold-helper] [--with-unlock-keyboard]' >&2; exit 2 ;;
     esac
 done
 
@@ -41,6 +45,11 @@ for pkg in gtk4 gtk4-layer-shell libxkbcommon wayland pkgconf gcc; do
 done
 if (( install_fold )); then
     for command_name in sudo systemctl udevadm make; do
+        command -v "$command_name" >/dev/null || { echo "Missing command: $command_name" >&2; exit 1; }
+    done
+fi
+if (( install_unlock )); then
+    for command_name in sudo mkinitcpio; do
         command -v "$command_name" >/dev/null || { echo "Missing command: $command_name" >&2; exit 1; }
     done
 fi
@@ -183,6 +192,57 @@ elif [[ -e $fold_bin || -e $fold_unit || -e $fold_rules ]]; then
     fold_message='The installed Type Cover fold helper was left as it was; pass --with-fold-helper to update it.'
 fi
 
+# The Surface Pro 9 Type Cover is not a USB keyboard: it reaches the kernel
+# through the Surface Aggregator, whose modules load only after the root
+# filesystem is mounted. On an encrypted root the unlock prompt comes first,
+# so without these modules in the initramfs the cover cannot type there.
+# Omarchy's own Surface fix (install/hardware/fix-surface-keyboard.sh) skips
+# kernels that build the pinctrl driver in, which linux-surface does. The
+# SP4 cover is USB and already works at the prompt through usbhid.
+unlock_conf=/etc/mkinitcpio.conf.d/gimbal-sp4-type-cover.conf
+unlock_message=''
+if [[ $product == 'Surface Pro 9' ]] && rg -q '(^| )(cryptdevice|rd\.luks\.[a-z]+)=' /proc/cmdline; then
+    if [[ -f $unlock_conf ]] && ! (( install_unlock )); then
+        unlock_message='The Type Cover types at the disk-unlock prompt; the installed initramfs modules were left as they were.'
+    elif [[ ! -f $unlock_conf ]] && rg -q -w surface_hid /etc/mkinitcpio.conf /etc/mkinitcpio.conf.d/ 2>/dev/null; then
+        unlock_message='The mkinitcpio configuration already loads the Type Cover modules; the disk-unlock prompt was not changed.'
+    elif (( install_unlock )); then
+        unlock_modules=(surface_aggregator surface_aggregator_registry surface_aggregator_hub
+                        surface_hid_core surface_hid intel_lpss intel_lpss_pci 8250_dw)
+        # The GPIO controller driver is built in on linux-surface but a module
+        # on other kernels; add it only when it is one.
+        for driver in /sys/bus/platform/drivers/*-pinctrl; do
+            compgen -G "$driver/*:*" >/dev/null || continue
+            if [[ -e $driver/module/initstate ]]; then
+                unlock_modules+=("$(basename "$(readlink -f "$driver/module")")")
+            fi
+        done
+        unlock_file=$(mktemp)
+        {
+            echo '# Installed by Gimbal SP4 (install.sh --with-unlock-keyboard); uninstall.sh removes it.'
+            echo '# Lets the Surface Pro 9 Type Cover type at the disk-unlock prompt.'
+            echo "MODULES+=(${unlock_modules[*]})"
+        } > "$unlock_file"
+        echo "Adding the Type Cover modules to the initramfs with sudo: $unlock_conf"
+        sudo install -o root -g root -m644 "$unlock_file" "$unlock_conf"
+        rm -f "$unlock_file"
+        # Omarchy boots through limine; its wrapper also refreshes the boot
+        # entries, which plain mkinitcpio -P would leave stale.
+        if command -v limine-mkinitcpio >/dev/null; then
+            sudo limine-mkinitcpio
+        else
+            sudo mkinitcpio -P
+        fi
+        unlock_message='The Type Cover types at the disk-unlock prompt after the next boot; attach it before powering on.'
+    else
+        unlock_message='The Type Cover cannot type at the disk-unlock prompt; pass --with-unlock-keyboard to fix that.'
+    fi
+elif (( install_unlock )); then
+    unlock_message="--with-unlock-keyboard was ignored: it is for a Surface Pro 9 with an encrypted root, and this is a $product"
+    rg -q '(^| )(cryptdevice|rd\.luks\.[a-z]+)=' /proc/cmdline || unlock_message+=' without one'
+    unlock_message+='.'
+fi
+
 # Qt caches loaded components, so the lock view only changes after a restart.
 omarchy restart shell >/dev/null
 
@@ -190,3 +250,4 @@ echo 'Gimbal SP4 installed. Tap its keyboard icon in the bar to show or hide the
 echo 'The adjacent tablet icon switches manual tablet mode.'
 echo "$lock_message"
 echo "$fold_message"
+if [[ -n $unlock_message ]]; then echo "$unlock_message"; fi

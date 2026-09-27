@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 # Remove everything install.sh put in place: the plugin, its Omarchy clones,
 # the Hyprland module, the keyboard and CLI, the optional Type Cover fold
-# helper, and the state they keep. Pass --purge to also remove the saved
-# settings (~/.config/omarchy/gimbal-sp4.json and the knob positions).
+# helper and unlock-prompt modules, and the state they keep. Pass --purge to
+# also remove the saved settings (~/.config/omarchy/gimbal-sp4.json and the
+# knob positions).
 set -euo pipefail
 
 purge=0
@@ -97,6 +98,24 @@ if fold_left; then
         exit 1
     fi
     echo 'Removed the Type Cover fold helper.'
+fi
+
+# The Type Cover initramfs modules (install.sh --with-unlock-keyboard). The
+# image is rebuilt without them, so the cover stops typing at the disk-unlock
+# prompt from the next boot.
+unlock_conf=/etc/mkinitcpio.conf.d/gimbal-sp4-type-cover.conf
+if [[ -e $unlock_conf ]]; then
+    echo "Removing the Type Cover initramfs modules with sudo: $unlock_conf"
+    if ! sudo rm -f "$unlock_conf"; then
+        echo "The Type Cover modules were not removed. Run ./uninstall.sh again, or remove $unlock_conf and rebuild the initramfs by hand." >&2
+        exit 1
+    fi
+    if command -v limine-mkinitcpio >/dev/null; then
+        sudo limine-mkinitcpio
+    else
+        sudo mkinitcpio -P
+    fi
+    echo 'Removed the Type Cover initramfs modules; the cover no longer types at the disk-unlock prompt.'
 fi
 
 if (( purge )); then

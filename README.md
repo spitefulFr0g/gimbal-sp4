@@ -49,7 +49,11 @@ Read `install.sh` before running it. It builds the keyboard, adds one `require` 
 ./install.sh
 ```
 
-Pass `--with-fold-helper` to also install the fold helper described below. That part needs `sudo`; the rest of the installer does not.
+Pass `--with-fold-helper` to also install the fold helper described below. Pass `--with-unlock-keyboard` on a Surface Pro 9 with an encrypted disk so that its Type Cover can type the disk passphrase at boot (see below). Those two parts need `sudo`; the rest of the installer does not.
+
+### Typing the disk passphrase on a Surface Pro 9
+
+The Surface Pro 9 Type Cover is not a USB keyboard. It reaches the kernel through the Surface Aggregator, and that driver loads only after the disk is unlocked. Without the driver in the initramfs, the cover types nothing at the unlock prompt but works at the lock screen. Omarchy's own Surface fix should add it, but it looks for a loadable `pinctrl` module, and the linux-surface kernel builds that driver in, so the fix writes nothing. With `--with-unlock-keyboard`, the installer writes `/etc/mkinitcpio.conf.d/gimbal-sp4-type-cover.conf` to add `surface_aggregator`, `surface_aggregator_registry`, `surface_aggregator_hub`, `surface_hid_core`, `surface_hid`, `intel_lpss`, `intel_lpss_pci` and `8250_dw` to the initramfs, then rebuilds it with `limine-mkinitcpio`. It skips this if the mkinitcpio configuration already loads `surface_hid`, and says so. The Surface Pro 4 cover is USB and works at the prompt as it is. Attach the cover before you power on.
 
 The installer requires Omarchy 4, Hyprland, and the official Arch packages `gtk4`, `gtk4-layer-shell`, `libxkbcommon`, `wayland`, `pkgconf`, and `gcc`. It stops if the original Gimbal plugin is enabled because both projects use `SUPER+B`.
 
@@ -67,7 +71,7 @@ hyprctl configerrors
 
 If the bar button has not appeared, check that `~/.local/bin` is on the Omarchy shell's `PATH`, then inspect `journalctl --user -t omarchy-shell` for plugin errors. The installer prints the Hyprland config backup path.
 
-To remove this fork, run `./uninstall.sh` from this repository. It removes the plugin and the Omarchy clones it made, the Hyprland module and its `require` line, the keyboard and `gimbal-sp4-mode`, and the saved mode and runtime state. If the fold helper is installed, it removes that last, using `sudo`: the udev rule, the unit and the binary. It then stops any running instance, which takes `/run/gimbal-sp4-cover` with it, and checks that nothing is left. The helper ran as a dynamic user, so no account remains. Your settings in `~/.config/omarchy/gimbal-sp4.json` and the knob positions are kept; `./uninstall.sh --purge` removes them too. It does not touch other plugins or the config backups the installer made.
+To remove this fork, run `./uninstall.sh` from this repository. It removes the plugin and the Omarchy clones it made, the Hyprland module and its `require` line, the keyboard and `gimbal-sp4-mode`, and the saved mode and runtime state. If the fold helper is installed, it removes that last, using `sudo`: the udev rule, the unit and the binary. It then stops any running instance, which takes `/run/gimbal-sp4-cover` with it, and checks that nothing is left. The helper ran as a dynamic user, so no account remains. If the unlock-prompt modules are installed, it removes that file and rebuilds the initramfs, also using `sudo`. Your settings in `~/.config/omarchy/gimbal-sp4.json` and the knob positions are kept; `./uninstall.sh --purge` removes them too. It does not touch other plugins or the config backups the installer made.
 
 ## The fold helper
 
