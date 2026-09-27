@@ -1,0 +1,86 @@
+# Publishes the Surface Pro 4 Type Cover's fold position to
+# /run/gimbal-sp4-cover/fold. Started by 70-gimbal-sp4-cover.rules with the
+# cover's hidraw node as the instance (for example hidraw2) and stopped when
+# that node goes away.
+#
+# The node also carries keystrokes and is root-only (0600). systemd opens it
+# read-only as standard input before dropping to an unprivileged dynamic
+# user, which has no way to open this or any other device itself. hidraw
+# does not check the access mode for ioctls, so the program also installs its
+# own seccomp filter that allows ioctl only as GET_REPORT on that descriptor.
+# See README.md, "The fold helper".
+[Unit]
+Description=Gimbal SP4 Type Cover fold helper (%I)
+Documentation=https://github.com/spitefulFr0g/gimbal-sp4
+BindsTo=dev-%i.device
+After=dev-%i.device
+StartLimitIntervalSec=60
+StartLimitBurst=10
+
+[Service]
+Type=exec
+ExecStart=/usr/local/lib/gimbal-sp4/gimbal-sp4-coverd
+StandardInput=file:/dev/%i
+StandardOutput=journal
+StandardError=journal
+Restart=on-failure
+RestartSec=2
+# 69 means the cover went away; the device unit stops this instance.
+SuccessExitStatus=69
+RestartPreventExitStatus=2 69
+
+# A user allocated at start and released at stop; nothing it owns outlives
+# the instance, because its only writable place is RuntimeDirectory.
+DynamicUser=yes
+User=gimbal-sp4-cover
+# Only one cover can be attached, so instances never overlap in practice
+# (the old node is removed before a new one is added). The directory is
+# removed when an instance stops, taking any stale position with it; if that
+# ever happens under a running instance, its next write fails and it restarts.
+RuntimeDirectory=gimbal-sp4-cover
+RuntimeDirectoryMode=0755
+UMask=0077
+
+# The node is opened by systemd for standard input; the device list, checked
+# at that open, admits only this instance's node (%i is resolved here, as
+# `systemd-analyze security` shows). The service itself sees an empty
+# private /dev.
+DevicePolicy=closed
+DeviceAllow=/dev/%i r
+PrivateDevices=yes
+
+NoNewPrivileges=yes
+CapabilityBoundingSet=
+AmbientCapabilities=
+SecureBits=noroot-locked
+PrivateUsers=yes
+PrivateNetwork=yes
+PrivateIPC=yes
+PrivateTmp=yes
+PrivateMounts=yes
+IPAddressDeny=any
+RestrictAddressFamilies=none
+ProtectSystem=strict
+ProtectHome=yes
+ProtectProc=invisible
+ProcSubset=pid
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+RestrictNamespaces=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+RemoveIPC=yes
+KeyringMode=private
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+SystemCallArchitectures=native
+SystemCallFilter=@default @basic-io @io-event @signal access fcntl fchmod fstat newfstatat openat renameat renameat2 unlinkat ioctl prctl
+SystemCallFilter=~personality
+LimitCORE=0
+LimitNOFILE=16
+TasksMax=4
+MemoryMax=16M

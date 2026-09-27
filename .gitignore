@@ -19,3 +19,7 @@ tools/vkspy
 oskd/virtual-keyboard-unstable-v1-*
 tools/typetarget
 tools/vktype
+
+# fold helper build output
+coverd/gimbal-sp4-coverd
+coverd/test_coverd
