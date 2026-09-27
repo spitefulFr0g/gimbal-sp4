@@ -1,5 +1,11 @@
 # The overlay clones: one line each
 
+**The menu is no longer cloned.** A clone of `omarchy.menu` shows an empty
+Apps list, because a third-party menu gets a scoped app library that yields
+no rows. `install.sh` now clones only the other four overlays and removes a
+menu clone an earlier install made. The files here stay as the worked
+example of the one-line edit.
+
 (No `manifest.json` here: `omarchy plugin clone` writes it, and a second one
 in the repo would make it look like two plugins to Omarchy's tooling and the
 marketplace.)

@@ -72,7 +72,7 @@ shell_config="$HOME/.config/omarchy/shell.json"
 if [[ -f $shell_config ]]; then
     cp -p "$shell_config" "$shell_config.gimbal-sp4.bak.$(date +%Y%m%d%H%M%S)"
 fi
-for spec in menu:Menu.qml polkit:PolkitAgent.qml emojis:Emojis.qml clipboard:Clipboard.qml reminders:ReminderFlow.qml; do
+for spec in polkit:PolkitAgent.qml emojis:Emojis.qml clipboard:Clipboard.qml reminders:ReminderFlow.qml; do
     name=${spec%%:*}
     entry=${spec#*:}
     clone="$HOME/.config/omarchy/plugins/${USER:-$(id -un)}.$name"
@@ -85,6 +85,15 @@ for spec in menu:Menu.qml polkit:PolkitAgent.qml emojis:Emojis.qml clipboard:Cli
     fi
     python3 "$source_dir/bin/patch-overlays.py" "$clone/$entry"
 done
+
+# The menu is not cloned: a third-party copy of it gets a scoped app library
+# and its Apps list comes up empty. Remove the clone an earlier install made,
+# which switches back to Omarchy's own menu.
+menu_clone="$HOME/.config/omarchy/plugins/${USER:-$(id -un)}.menu"
+if [[ -f $menu_clone/.gimbal-sp4-owned ]]; then
+    omarchy plugin remove "${USER:-$(id -un)}.menu" --yes >/dev/null
+    echo 'Removed the earlier menu clone; the stock Omarchy menu is active.'
+fi
 
 # The lock screen is an ext-session-lock surface: while locked, no layer
 # surface such as the on-screen keyboard is drawn or touchable. Clone Omarchy's

@@ -102,8 +102,8 @@ Hyprland routes every pointer and touch event to layer surfaces with
 menu is one. The finger lands on the menu's scrim, which cancels it
 (FINDINGS 19.1, with the compositor source).
 
-**Status.** Fixed by `install.sh`, which clones the menu, the polkit
-password prompt, the emoji and clipboard pickers and the reminder prompt,
+**Status.** Fixed for the polkit password prompt, the emoji and clipboard
+pickers and the reminder prompt by `install.sh`, which clones them,
 each differing from Omarchy's file by one line: while folded they take
 keyboard focus on demand, in laptop mode exactly as before. On demand keeps
 focus on map and typing intact — measured with virtual-pointer clicks on the
@@ -111,8 +111,16 @@ focus on map and typing intact — measured with virtual-pointer clicks on the
 and stayed, a click on the scrim still closed the menu, Esc still cancelled
 the prompt (FINDINGS 19.3, 19.5). None of those fields can ask fcitx5 for a
 keyboard (Qt never does), so the keyboard also comes up on its own when any
-of the five opens. It cannot be fixed from the plugin; upstream draft D asks
+of the four opens. It cannot be fixed from the plugin; upstream draft D asks
 for it at the source, and the clones go away when it lands.
+
+**Not fixed for the menu.** The menu used to be cloned the same way, but a
+clone of `omarchy.menu` shows an empty Apps list ("Nothing here yet"): a
+third-party menu gets a scoped app library instead of the shell's own, and
+it yields no rows. Switching back to the stock menu restored the apps, so
+`install.sh` no longer clones it and removes a clone an earlier version made.
+Folded, a tap on the keyboard can close the menu again until upstream draft D
+lands.
 
 **Two edges that remain.** Hiding the keyboard with `SUPER+B` while one of
 those overlays is open hands keyboard focus to the window behind it
